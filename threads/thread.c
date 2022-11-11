@@ -27,6 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+static struct list sleep_list; // sleep_list 생성
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -62,6 +63,12 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
+static int64_t next_tick_to_awake; 				/* 다음에 일어나야할 tick 저장 */
+void thread_sleep(int64_t ticks);				/* 실행 중인 스레드를 슬립으로 만듦 */
+void thread_awake(int64_t ticks);				/* 슬립큐에서 깨워야 할 스레드를 깨움*/
+void update_next_tick_to_awake(int64_t ticks);  /* 최소 틱을 가진 스레드 저장 */
+int64_t get_next_tick_to_awake(void);			/* thread.c의 next_tick_to_awake를 반환 */
+
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -108,6 +115,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&sleep_list);         /* sleep_list를 초기화 */
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -588,3 +596,22 @@ allocate_tid (void) {
 
 	return tid;
 }
+
+/* 실행 중인 스레드를 슬립으로 만듦 */
+void thread_sleep(int64_t ticks){
+	/* 현재 스레드가 idle 스레드가 아닐 경우 
+	   thread의 상태를 BLOCKED로 바꾸고 깨어나야 할 ticks를 저장 */
+	struct thread *cur = thread_current();
+	enum intr_level old_level;
+
+	old_level = intr_disable(); 
+	if (cur != idle_thread)
+		cur->status = THREAD_BLOCKED;
+		next_tick_to_awake = cur->wakeup_tick;
+		list_push_back(&sleep_list, &cur->elem);
+	
+	/* schedule() 함수의 목적은 ready_list에서 뽑아내서 다음의 running list로 바꾸는 것
+		=> 필요없을 것으로 보임 */
+	// schedule();
+	intr_set_level(old_level);
+};				

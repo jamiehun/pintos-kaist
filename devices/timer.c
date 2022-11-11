@@ -93,8 +93,13 @@ timer_sleep (int64_t ticks) {
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	/* 기존의 busy writing을 유발하는 코드를 삭제 */
+	// while (timer_elapsed (start) < ticks)
+	// 	thread_yield ();
+
+	/* 새로 구현한 thread를 sleep queue에 삽입하는 함수를 호출 */
+	thread_sleep(start);
+
 }
 
 /* Suspends execution for approximately MS milliseconds. */
