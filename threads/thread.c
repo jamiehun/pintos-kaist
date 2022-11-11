@@ -609,7 +609,7 @@ void thread_sleep(int64_t ticks){
 		cur->status = THREAD_BLOCKED;
 		next_tick_to_awake = cur->wakeup_tick;
 		list_push_back(&sleep_list, &cur->elem);
-	
+		ticks = get_next_tick_to_awake();
 	/* schedule() 함수의 목적은 ready_list에서 뽑아내서 다음의 running list로 바꾸는 것
 		=> 필요없을 것으로 보임 */
 	// schedule();
