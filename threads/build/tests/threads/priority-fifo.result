@@ -1,2 +1,2 @@
 FAIL
-Run didn't shut down properly: no "Powering off" message
+First iteration does not list exactly 16 threads.
