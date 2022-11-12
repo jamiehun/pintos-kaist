@@ -609,12 +609,12 @@ void thread_sleep(int64_t ticks){
 	old_level = intr_disable(); 
 	if (cur != idle_thread)
 		cur->status = THREAD_BLOCKED; // running -> sleep이라 yield랑은 다르게 BLOCKED으로 설정
-		cur->wakeup_tick = ticks;
+		cur->wakeup_tick = ticks; 	  // 깨어나야할 ticks를 저장 (tick만큼 잠들어 있어 !)
 		list_push_back(&sleep_list, &cur->elem);
 
-	// 깨어나야할 ticks를 저장
-	next_tick_to_awake = get_next_tick_to_awake(); 
-	schedule();
+	
+	update_next_tick_to_awake(cur->wakeup_tick); 
+	schedule(); // next를 running으로 만듦
 	intr_set_level (old_level);
 
 
@@ -650,3 +650,23 @@ void thread_awake(int64_t ticks)
 		}
   	}
 }
+
+/* 최소 틱을 가진 스레드 저장 */
+void update_next_tick_to_awake(int64_t ticks)
+{	
+	/* 다음에 일어나야할 tick 저장 */
+	// static int64_t next_tick_to_awake;
+	if (next_tick_to_awake == NULL){
+		next_tick_to_awake = ticks;
+	}
+		
+	// 만약 ticks가 next_tick_to_awake보다 작으면 해당 변수 update
+	if (ticks < next_tick_to_awake){
+		next_tick_to_awake = ticks;
+	}
+}
+
+/* thread.c의 next_tick_to_awake를 반환 */
+int64_t get_next_tick_to_awake(void){
+	return next_tick_to_awake;
+}		
