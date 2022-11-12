@@ -134,9 +134,9 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	thread_tick ();
 
 	int64_t temp = get_next_tick_to_awake();
-	if(ticks==temp)
+	if(ticks>=temp)
 	{
-		thread_awake(temp);
+		thread_awake(ticks);
 	}
 }
 
