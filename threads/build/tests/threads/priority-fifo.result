@@ -1,2 +1,2 @@
 FAIL
-Run produced no output at all
+Run didn't shut down properly: no "Powering off" message
