@@ -535,9 +535,9 @@ thread_launch (struct thread *th) {
  * It's not safe to call printf() in the schedule(). */
 static void
 do_schedule(int status) {
-	ASSERT (intr_get_level () == INTR_OFF);
-	ASSERT (thread_current()->status == THREAD_RUNNING);
-	while (!list_empty (&destruction_req)) {
+	ASSERT (intr_get_level () == INTR_OFF);						//현재 실행 중인 스레드
+	ASSERT (thread_current()->status == THREAD_RUNNING);        //인터럽트 level: on/off
+	while (!list_empty (&destruction_req)) {					/* Thread destruction 해야 할 list가 비어 있지 않을때 까지 */
 		struct thread *victim =
 			list_entry (list_pop_front (&destruction_req), struct thread, elem);
 		palloc_free_page(victim);
@@ -604,14 +604,49 @@ void thread_sleep(int64_t ticks){
 	struct thread *cur = thread_current();
 	enum intr_level old_level;
 
+	ASSERT (!intr_context ()); // 외부 인터럽트가 안들어왔을 때만 통과
+
 	old_level = intr_disable(); 
 	if (cur != idle_thread)
-		cur->status = THREAD_BLOCKED;
-		next_tick_to_awake = cur->wakeup_tick;
+		cur->status = THREAD_BLOCKED; // running -> sleep이라 yield랑은 다르게 BLOCKED으로 설정
+		cur->wakeup_tick = ticks;
 		list_push_back(&sleep_list, &cur->elem);
-		ticks = get_next_tick_to_awake();
+
+	// 깨어나야할 ticks를 저장
+	next_tick_to_awake = get_next_tick_to_awake(); 
+	schedule();
+	intr_set_level (old_level);
+
+
 	/* schedule() 함수의 목적은 ready_list에서 뽑아내서 다음의 running list로 바꾸는 것
 		=> 필요없을 것으로 보임 */
 	// schedule();
 	intr_set_level(old_level);
 };				
+
+/* wakeup_tick 값이 ticks보다 작거나 같은 스레드를 깨움 
+ * 현재 대기중인 스레드들의 wakeup_tick 변수 중 가장 작은 값을 
+ * next_tick_to_awake 전역 변수에 저장
+ */
+void thread_awake(int64_t ticks)
+{
+	struct list_elem *e;
+	// temp=sleep_list.head;
+	// while(temp.next!=NULL)
+	// {
+
+	// }
+	for (e = list_begin (&sleep_list); e != list_end (&sleep_list);e = list_next (e)) 
+	{// ...do something with f...
+    struct thread *f = list_entry (e, struct thread, elem);
+		if (ticks >= f->wakeup_tick) //깨운다
+		{
+			list_remove(e);
+			thread_unblock(f); //ready_list로 보내기, status도 ready로 변경
+		}
+		else
+		{
+			update_next_tick_to_awake(f->wakeup_tick);
+		}
+  	}
+}

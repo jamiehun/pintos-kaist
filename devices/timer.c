@@ -98,7 +98,7 @@ timer_sleep (int64_t ticks) {
 	// 	thread_yield ();
 
 	/* 새로 구현한 thread를 sleep queue에 삽입하는 함수를 호출 */
-	thread_sleep(start);
+	thread_sleep(ticks); // ticks의 시간만큼 재움
 
 }
 
@@ -125,12 +125,18 @@ void
 timer_print_stats (void) {
 	printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
+
+	int64_t temp=get_next_tick_to_awake();
+	if(ticks==temp)
+	{
+		thread_awake(temp);
+	}
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
