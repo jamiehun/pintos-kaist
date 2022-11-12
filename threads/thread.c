@@ -629,11 +629,7 @@ void thread_sleep(int64_t ticks){
  */
 void thread_awake(int64_t ticks)
 {
-	
-	// while(temp.next!=NULL)
-	// {
 
-	// }
 	// for (e = list_begin (&sleep_list); e != list_end (&sleep_list);e = list_next (e)) 
 	// {// ...do something with f...
     // struct thread *f = list_entry (e, struct thread, elem);
