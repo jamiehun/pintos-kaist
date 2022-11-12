@@ -1,0 +1,21 @@
+Kernel command line: -q -mlfqs run mlfqs-fair-2
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  128,409,600 loops/s.
+Boot complete.
+Executing 'mlfqs-fair-2':
+(mlfqs-fair-2) begin
+(mlfqs-fair-2) Starting 2 threads...
+(mlfqs-fair-2) Starting threads took 0 ticks.
+(mlfqs-fair-2) Sleeping 40 seconds to let threads run, please wait...
+Kernel PANIC at ../../lib/kernel/list.c:242 in list_remove(): assertion `is_interior (elem)' failed.
+Call stack: 0x8004213426 0x8004213c7c 0x8004207992 0x800420d1f4 0x8004208938 0x8004208d56 0x80042071a0.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 527 ticks
+Thread: 499 idle ticks, 28 kernel ticks, 0 user ticks
+Console: 
