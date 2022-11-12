@@ -143,7 +143,7 @@ thread_start (void) {
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
-void
+void	//외부 인터럽트 컨텍스트(timer interrupt)에서 실행됩니다.
 thread_tick (void) {
 	struct thread *t = thread_current ();
 
@@ -307,12 +307,12 @@ thread_yield (void) {
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
-	ASSERT (!intr_context ());
+	ASSERT (!intr_context ()); // 외부 인터럽트가 들어왔으면 True / 아니면 False
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
 		list_push_back (&ready_list, &curr->elem);
-	do_schedule (THREAD_READY);
+	do_schedule (THREAD_READY); // context switch 작업 수행 - running인 스레드를 ready로 전환.
 	intr_set_level (old_level);
 }
 
@@ -615,3 +615,27 @@ void thread_sleep(int64_t ticks){
 	// schedule();
 	intr_set_level(old_level);
 };				
+
+
+void thread_awake(int64_t ticks)
+{
+	struct list_elem *e;
+	// temp=sleep_list.head;
+	// while(temp.next!=NULL)
+	// {
+
+	// }
+	for (e = list_begin (&sleep_list); e != list_end (&sleep_list);e = list_next (e)) 
+	{// ...do something with f...
+    struct thread *f = list_entry (e, struct thread, elem);
+		if (ticks >= f->wakeup_tick) //깨운다
+		{
+			list_remove(e);
+			thread_unblock(f); //ready_list로 보내기, status도 ready로 변경
+		}
+		else
+		{
+			update_next_tick_to_awake(f->wakeup_tick);
+		}
+  	}
+}
