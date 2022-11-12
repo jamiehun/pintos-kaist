@@ -629,7 +629,7 @@ void thread_sleep(int64_t ticks){
  */
 void thread_awake(int64_t ticks)
 {
-	// temp=sleep_list.head;
+	
 	// while(temp.next!=NULL)
 	// {
 
