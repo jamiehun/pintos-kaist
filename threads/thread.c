@@ -608,13 +608,13 @@ void thread_sleep(int64_t ticks){
 
 	old_level = intr_disable(); 
 	if (cur != idle_thread){
-		cur->status = THREAD_BLOCKED; // running -> sleep이라 yield랑은 다르게 BLOCKED으로 설정
+		// cur->status = THREAD_BLOCKED; // running -> sleep이라 yield랑은 다르게 BLOCKED으로 설정
 		cur->wakeup_tick = ticks; 	  // 깨어나야할 ticks를 저장 (tick만큼 잠들어 있어 !)
 		list_push_back(&sleep_list, &cur->elem);
 	}
 	
 	update_next_tick_to_awake(cur->wakeup_tick); 
-	schedule(); // next를 running으로 만듦
+	do_schedule(THREAD_BLOCKED); // next를 running으로 만듦
 
 	/* schedule() 함수의 목적은 ready_list에서 뽑아내서 다음의 running list로 바꾸는 것
 		=> 필요없을 것으로 보임 */
