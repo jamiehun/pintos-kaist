@@ -21,6 +21,8 @@ Differences in `diff -u' format:
 - (alarm-priority) Thread priority 28 woke up.
 - (alarm-priority) Thread priority 27 woke up.
 - (alarm-priority) Thread priority 26 woke up.
++ ========================
++ 523
   (alarm-priority) Thread priority 25 woke up.
   (alarm-priority) Thread priority 24 woke up.
   (alarm-priority) Thread priority 23 woke up.

@@ -19,10 +19,10 @@ Executing 'priority-donate-chain':
 (priority-donate-chain) main finishing with priority 0.
 (priority-donate-chain) end
 Kernel PANIC at ../../threads/synch.c:187 in lock_acquire(): assertion `lock != NULL' failed.
-Call stack: 0x8004213403 0x8004209ce5 0x8004219778 0x80042071a0.
+Call stack: 0x8004213444 0x8004209d26 0x80042197b9 0x80042071a0.
 The `backtrace' program can make call stacks useful.
 Read "Backtraces" in the "Debugging Tools" chapter
 of the Pintos documentation for more information.
-Timer: 32 ticks
-Thread: 0 idle ticks, 32 kernel ticks, 0 user ticks
+Timer: 28 ticks
+Thread: 0 idle ticks, 28 kernel ticks, 0 user ticks
 Console: 1

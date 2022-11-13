@@ -316,7 +316,7 @@ thread_yield (void) {
 	do_schedule (THREAD_READY);				 // context switch 작업 수행 - running인 스레드를 ready로 전환.
 	intr_set_level (old_level); 		     // 인자로 전달된 인터럽트 상태로 인터럽트 설정하고 이전 인터럽트 상태 반환
 }
-}
+
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
@@ -634,22 +634,8 @@ void thread_sleep(int64_t ticks){
  */
 void thread_awake(int64_t ticks)
 {
-
-	// for (e = list_begin (&sleep_list); e != list_end (&sleep_list);e = list_next (e)) 
-	// {// ...do something with f...
-    // struct thread *f = list_entry (e, struct thread, elem);
-	// 	if (ticks >= f->wakeup_tick) //깨운다
-	// 	{
-	// 		list_remove(e);
-	// 		thread_unblock(f); //ready_list로 보내기, status도 ready로 변경
-	// 	}
-	// 	else
-	// 	{
-	// 		update_next_tick_to_awake(f->wakeup_tick);
-	// 	}
-  	// }
-	
 	struct list_elem *e = list_begin(&sleep_list);
+	next_tick_to_awake = INT64_MAX;
 
 	while (e != list_tail(&sleep_list)) {
 		struct thread *f = list_entry(e, struct thread, elem);
@@ -683,6 +669,8 @@ void update_next_tick_to_awake(int64_t ticks)
 	// 만약 ticks가 next_tick_to_awake보다 작으면 해당 변수 update
 	if (ticks < next_tick_to_awake){
 		next_tick_to_awake = ticks;
+		printf("========================\n");
+		printf("%lld\n", next_tick_to_awake);
 	}
 }
 
