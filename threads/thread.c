@@ -302,18 +302,20 @@ thread_exit (void) {
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
+/* 현재 running 중인 스레드를 비활성화 시키고 ready_list에 삽입.*/
 void
 thread_yield (void) {
-	struct thread *curr = thread_current ();
-	enum intr_level old_level;
+	struct thread *curr = thread_current (); //현재 실행 중인 스레드
+	enum intr_level old_level;				 //인터럽트 level: on/off
 
-	ASSERT (!intr_context ());
+	ASSERT (!intr_context ());				 // 외부 인터럽트가 들어왔으면 True / 아니면 False => 외부인터럽트가 False여야 밑으로 진행됨 
 
-	old_level = intr_disable ();
-	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
-	do_schedule (THREAD_READY);
-	intr_set_level (old_level);
+	old_level = intr_disable ();			 // 인터럽트를 비활성하고 이전 인터럽트 상태(old_level)를 받아온다.
+	if (curr != idle_thread)				 // 현재 스레드가 idle 스레드와 같지 않다면
+		list_push_back (&ready_list, &curr->elem); // ready리스트 맨 마지막에 curr을 줄세워.
+	do_schedule (THREAD_READY);				 // context switch 작업 수행 - running인 스레드를 ready로 전환.
+	intr_set_level (old_level); 		     // 인자로 전달된 인터럽트 상태로 인터럽트 설정하고 이전 인터럽트 상태 반환
+}
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -534,26 +536,28 @@ thread_launch (struct thread *th) {
  * finds another thread to run and switches to it.
  * It's not safe to call printf() in the schedule(). */
 static void
-do_schedule(int status) {
-	ASSERT (intr_get_level () == INTR_OFF);						//현재 실행 중인 스레드
-	ASSERT (thread_current()->status == THREAD_RUNNING);        //인터럽트 level: on/off
-	while (!list_empty (&destruction_req)) {					/* Thread destruction 해야 할 list가 비어 있지 않을때 까지 */
-		struct thread *victim =
-			list_entry (list_pop_front (&destruction_req), struct thread, elem);
-		palloc_free_page(victim);
+do_schedule(int status) { // 현재 running 중인 스레드를 status로 바꾸고 새로운 스레드를 실행.
+	ASSERT (intr_get_level () == INTR_OFF);						// 현재 인터럽트가 없어야 하고 
+	ASSERT (thread_current()->status == THREAD_RUNNING);        // 현재 스레드 상태가 running일 때 실행
+	while (!list_empty (&destruction_req)) {					// destruction_req 리스트가 빌 때까지 하나씩 메모리 할당 해제
+		struct thread *victim =									// victim은 destruction_req라는 list의 첫번째 elem을 가리킴
+			list_entry (list_pop_front (&destruction_req), struct thread, elem); 
+		palloc_free_page(victim);								// victim page를 해제
 	}
 	thread_current ()->status = status;
-	schedule ();
+	schedule (); //스케줄 함수 호출
 }
 
+
+/*running인 스레드를 빼내고 next 스레드를 running으로 만든다*/
 static void
 schedule (void) {
-	struct thread *curr = running_thread ();
-	struct thread *next = next_thread_to_run ();
+	struct thread *curr = running_thread ();	 	// do_schedule에서는 status만 바꿔줌
+	struct thread *next = next_thread_to_run ();	// next run할 변수 설정
 
-	ASSERT (intr_get_level () == INTR_OFF);
-	ASSERT (curr->status != THREAD_RUNNING);
-	ASSERT (is_thread (next));
+	ASSERT (intr_get_level () == INTR_OFF);			// scheduling 도중에는 인터럽트가 발생하면 안 되기 때문에 INTR_OFF 상태인지 확인한다.
+	ASSERT (curr->status != THREAD_RUNNING);		// CPU 소유권을 넘겨주기 전에 running 스레드는 그 상태를 running 외의 다른 상태로 바꾸어주는 작업이 되어 있어야 하고 이를 확인하는 부분이다.
+	ASSERT (is_thread (next));						// next_thread_to_run() 에 의해 올바른 thread 가 return 되었는지 확인returns true if next appears to point to a valid thread
 	/* Mark us as running. */
 	next->status = THREAD_RUNNING;
 
@@ -562,7 +566,7 @@ schedule (void) {
 
 #ifdef USERPROG
 	/* Activate the new address space. */
-	process_activate (next);
+	process_activate (next);						// CPU에 running user code를 setup 하고, 모든 context switching에서 이 작업을 수행함
 #endif
 
 	if (curr != next) {
@@ -573,6 +577,7 @@ schedule (void) {
 		   currently used bye the stack.
 		   The real destruction logic will be called at the beginning of the
 		   schedule(). */
+		/* 한마디로 얘기해서 PREV 함수가 죽어있으면 destruction_req list로 보내라는 것 */
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread) {
 			ASSERT (curr != next);
 			list_push_back (&destruction_req, &curr->elem);
@@ -653,6 +658,7 @@ void thread_awake(int64_t ticks)
 			e = list_remove(&f->elem);
 			// ASSERT (is_interior(e));
 			thread_unblock(f);
+
 		}
 
 		else{
@@ -667,6 +673,7 @@ void thread_awake(int64_t ticks)
 /* 최소 틱을 가진 스레드 저장 */
 void update_next_tick_to_awake(int64_t ticks)
 {	
+	// next_tick_to_awake = INT64_MAX;
 	/* 다음에 일어나야할 tick 저장 */
 	// static int64_t next_tick_to_awake;
 	// if (next_tick_to_awake == NULL){
