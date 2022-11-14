@@ -138,6 +138,7 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	if(ticks>=temp)
 	{
 		thread_awake(ticks);
+
 	}
 }
 
