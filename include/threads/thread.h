@@ -154,5 +154,7 @@ int64_t get_next_tick_to_awake(void);			/* thread.c의 next_tick_to_awake를 반
 void test_max_priority(void);	
 /* 인자로 주어진 스레드들의 우선순위를 비교*/
 bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
+/* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 #endif /* threads/thread.h */
