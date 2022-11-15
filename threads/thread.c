@@ -349,6 +349,7 @@ void test_max_priority(void)
 {
 	int cur_priority = thread_get_priority();				   // 현재 쓰레드 우선순위 저장
 	ASSERT(!list_empty(&ready_list));						   // error 체크용
+	if (list_empty(&ready_list)) return;
 	struct list_elem *e = list_begin(&ready_list);			   // ready_list의 첫번째 elem 반환
 	struct thread *max_t = list_entry(e, struct thread, elem); // e에 해당하는 thread 저장
 
