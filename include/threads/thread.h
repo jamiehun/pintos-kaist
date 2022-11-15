@@ -96,6 +96,13 @@ struct thread {
 	struct list_elem elem;              /* List element. */
 	int64_t wakeup_tick;				/* 깨어나야할 tick 저장 */
 
+	/* prioriry donation 관련 항목 */
+	int init_priority;                  /* donation 이후 우선순위를 초기화하기 위해 초기값 저장 */
+	struct lock *wait_on_lock;			/* 해당 스레드가 대기 하고 있는 lock자료구조의 주소를 저장 */
+	struct list donations;				/* multiple donation 을 고려하기 위해 사용 */		 
+	struct list_elem donation_elem;	    /* multiple donation 을 고려하기 위해 사용 */		 
+
+
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -156,5 +163,10 @@ void test_max_priority(void);
 bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
 /* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+/* Priority Donation 함수 */
+void donate_priority(void);
+void remove_with_lock(struct lock *lock); 
+void refresh_priority(void);
 
 #endif /* threads/thread.h */

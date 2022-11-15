@@ -198,13 +198,35 @@ lock_init (struct lock *lock) {
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
 void
-lock_acquire (struct lock *lock) {
+lock_acquire (struct lock *lock) { // lock 획득을 원하는 주체 = cur_thread
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));	// current_thread가 unlock이어야 통과
 
+	/* 해당 lock 의 holder가 존재 한다면 아래 작업을 수행한다. */
+	if (lock->holder != NULL){
+		struct thread *cur = thread_current();
+
+		/* 현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장 */
+		cur->wait_on_lock = lock;
+
+		/* multiple donation 을 고려하기 위해 *이전상태*의 우선순위를 기억 */
+		// lock->holder->init_priority = lock->holder->priority; // ??? (새로운 변수를 설정하는 것이 맞나?)
+
+		/* donation 을 받은 스레드의 thread 구조체를 list로 관리한다. */
+		// list_push_back(&lock->holder->donations, &cur->donation_elem); // ??? list_insert_order 고려!
+		list_insert_ordered(&lock->holder->donations, &cur->donation_elem, cmp_priority, NULL); // ??? list_insert_order 고려!
+
+		/* priority donation 수행하기 위해 donate_priority() 함수 호출 */
+		donate_priority();
+	}	
+
 	sema_down (&lock->semaphore);
+	thread_current()->wait_on_lock = NULL;
+
+	/* lock을 획득 한 후 lock holder 를 갱신한다. */
 	lock->holder = thread_current ();
+	
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -239,6 +261,11 @@ lock_release (struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));	// current_thread가 lock이어야 통과
 
 	lock->holder = NULL;
+
+	remove_with_lock(lock);
+	refresh_priority();
+
+
 	sema_up (&lock->semaphore);
 }
 
@@ -362,4 +389,21 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
 	struct thread *tb = list_entry(begin_b, struct thread, elem);
 
 	return ta->priority > tb->priority;
+}
+
+/* lock 을 해지 했을때 donations 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현한다. */
+void remove_with_lock(struct lock *lock){
+	/* 현재 스레드의 donations 리스트를 확인하여 해지 할 lock 을 보유하고 있는 엔트리를 삭제 한다. */
+	struct thread *cur = thread_current(); 		// thread L 
+	struct list *cur_don = &cur->donations;
+	struct list_elem *e; 
+
+	if (!list_empty(cur_don)){
+		for (e = list_begin(cur_don); e != list_end(cur_don); e = list_next(e)){
+			struct thread *e_cur = list_entry(e, struct thread, elem);
+			if (lock == e_cur->wait_on_lock){
+				list_remove(&e_cur->donation_elem);
+			}
+		}
+	}
 }

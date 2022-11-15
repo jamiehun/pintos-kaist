@@ -328,10 +328,19 @@ void thread_yield(void)
 }
 
 /* 스레드의 우선순위가 변경되었을 때 우선순위에 따라 ready_list의 우선순위와 비교하여 스케줄링(preempted) */
+/* donation 을 고려하여 thread_set_priority() 함수를 수정한다 */
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
+	thread_current()->init_priority = new_priority;
+
+	/* refresh_priority() 함수를 사용하여 우선순위를 변경으로 인한 donation 관련 정보를 갱신한다.
+       donation_priority(), test_max_pariority() 함수를 적절히 사용하여 
+	   priority donation 을 수행하고 스케줄링 한다. */
+
+	refresh_priority();
+	donate_priority();
 	test_max_priority();
 }
 
@@ -339,6 +348,7 @@ void thread_set_priority(int new_priority)
 void test_max_priority(void)
 {
 	int cur_priority = thread_get_priority();				   // 현재 쓰레드 우선순위 저장
+	ASSERT(!list_empty(&ready_list));						   // error 체크용
 	struct list_elem *e = list_begin(&ready_list);			   // ready_list의 첫번째 elem 반환
 	struct thread *max_t = list_entry(e, struct thread, elem); // e에 해당하는 thread 저장
 
@@ -449,6 +459,12 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	/* Priority donation 관련 자료구조 초기화 */
+	t->init_priority = priority;
+	t->wait_on_lock = NULL;   // init시에는 주소가 없을 것으로 생각
+	list_init(&t->donations);
+	// list_elem은 초기화 하지 않았고, list_init에서 초기화 되고 있음 
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -713,4 +729,41 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 	struct thread *temp2 = list_entry(b, struct thread, elem);	//list_elem *b 에 해당하는 thread 반환
 
 	return temp1->priority > temp2->priority;
+}
+
+/* priority donation을 수행하는 함수를 구현한다. */
+void donate_priority(void)
+{
+	/* 현재 스레드가 기다리고 있는 lock과 연결된 모든 스레드들을 순회하며 
+	   현재 스레드의 우선순위를 lock을 보유하고 있는 스레드에게 기부한다. 
+	   (Nested donation 그림 참고, nested depth 는 8로 제한한다.) */
+	struct thread *cur = thread_current();
+	struct lock *cur_lock = cur->wait_on_lock;
+
+	for (int i = 0; i < 8; i++){
+		
+		if ((cur != NULL) && (cur_lock != NULL) && (cur->priority >= cur_lock->holder->priority))
+		{
+			cur_lock->holder->priority = cur->priority;
+		}
+		
+		cur = cur_lock->holder;
+		cur_lock = cur->wait_on_lock;
+
+	}
+}
+
+/* 스레드의 우선순위가 변경 되었을때 donation을 고려하여 우선순위를 다시 결정하는 함수를 작성한다. */
+void refresh_priority(void){
+	/* 현재 스레드의 우선순위를 기부받기 전의 우선순위로 변경 */
+	struct thread *cur = thread_current();
+	cur->priority = cur->init_priority;
+
+	if (list_empty(&cur->donations)) return;
+	struct list_elem *first_don = list_begin(&cur->donations);
+	struct thread *first_thread = list_entry(first_don, struct thread, donation_elem);
+
+	if (first_thread->priority > cur->priority){
+		cur->priority = first_thread->priority;
+	}
 }
