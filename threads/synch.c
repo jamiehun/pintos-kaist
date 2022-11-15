@@ -70,7 +70,7 @@ sema_down (struct semaphore *sema) {
 	//sema값이 0인동안(자원이 없는동안) 현재thread를 waiters에 넣고 상태를 block으로 바꿈 
 	//그리고 while문 반복되는 동안 계속해서 ready_list에서 하나 꺼내서 running
 	while (sema->value == 0) {	 
-		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_sem_priority, NULL); // ***
+		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL); // ***
 		thread_block ();	//자원이 없으면 block으로 상태바꾸고 schedule(), ???
 	}						// block인 상태로 대기(?)
 	sema->value--;
@@ -343,15 +343,22 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
 }
+
 /* 첫 번째 인자의 우선순위가 두 번째 인자의 우선순위보다 높으면 1을 반환 낮으면 0을 반환 */
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	// ???
 	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
 	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
-	
-	struct thread *ta = list_entry(a, struct thread, elem);
-	struct thread *tb = list_entry(b, struct thread, elem);
+
+	struct list* la = &sa->semaphore.waiters;
+	struct list* lb = &sb->semaphore.waiters;
+
+	struct list_elem *begin_a=list_begin(la);
+	struct list_elem *begin_b=list_begin(lb);
+
+	struct thread *ta = list_entry(begin_a, struct thread, elem);
+	struct thread *tb = list_entry(begin_b, struct thread, elem);
 
 	return ta->priority > tb->priority;
 }
