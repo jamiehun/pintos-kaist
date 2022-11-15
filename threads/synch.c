@@ -69,11 +69,11 @@ sema_down (struct semaphore *sema) {
 	old_level = intr_disable ();
 	//sema값이 0인동안(자원이 없는동안) 현재thread를 waiters에 넣고 상태를 block으로 바꿈 
 	//그리고 while문 반복되는 동안 계속해서 ready_list에서 하나 꺼내서 running
-	while (sema->value == 0) {	 
+	while (sema->value == 0) {	// waiters 리스트 삽입 시, 우선순위대로 삽입되도록 수정
 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL); // ***
 		thread_block ();	//자원이 없으면 block으로 상태바꾸고 schedule(), ???
 	}						// block인 상태로 대기(?)
-	sema->value--;
+	sema->value--;	// Semaphore를 얻음.
 	intr_set_level (old_level);
 }
 
@@ -299,11 +299,11 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (lock_held_by_current_thread (lock));
 
-	sema_init (&waiter.semaphore, 0);
+	sema_init (&waiter.semaphore, 0);	// 스스로 잠들기 위해 0으로 초기화
 	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);	// ***
-	lock_release (lock);
-	sema_down (&waiter.semaphore);
-	lock_acquire (lock);
+	lock_release (lock);				// cond_signal을 대기하면서 lock을 반환
+	sema_down (&waiter.semaphore);		// while loop 안에서 Block인 상태로 대기
+	lock_acquire (lock);				// 깨어나면서 lock 재획득
 }
 /* condition variable에서 기다리는 가장 높은 우선순위의 스레드에 signal을 보냄(즉, sema_up으로 깨우기) */
 /* condition variable의 waiters list를 우선순위로 재정렬 */
@@ -345,18 +345,16 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 }
 
 /* 첫 번째 인자의 우선순위가 두 번째 인자의 우선순위보다 높으면 1을 반환 낮으면 0을 반환 */
+/* 첫번째 인자로 주어진 세마포어(sa)를 위해 대기 중인 가장 높은 우선순위의 스레드와 
+두번째 인자로 주어진 세마포어(sb)를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	// ???
+	
 	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
 	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
 
 	struct list* la = &sa->semaphore.waiters;
 	struct list* lb = &sb->semaphore.waiters;
-<<<<<<< HEAD
-
-=======
->>>>>>> 566c6152a88b76e783f47c4867d00302b67006ec
 	struct list_elem *begin_a=list_begin(la);
 	struct list_elem *begin_b=list_begin(lb);
 
