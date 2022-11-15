@@ -163,6 +163,8 @@ void test_max_priority(void);
 bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
 /* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+/* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
+bool cmp_dom_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Priority Donation 함수 */
 void donate_priority(void);

@@ -339,8 +339,10 @@ void thread_set_priority(int new_priority)
        donation_priority(), test_max_pariority() 함수를 적절히 사용하여 
 	   priority donation 을 수행하고 스케줄링 한다. */
 
-	refresh_priority();
-	donate_priority();
+	if (!list_empty(&thread_current()->donations)){
+		refresh_priority();
+		donate_priority();
+	}
 	test_max_priority();
 }
 
@@ -348,7 +350,7 @@ void thread_set_priority(int new_priority)
 void test_max_priority(void)
 {
 	int cur_priority = thread_get_priority();				   // 현재 쓰레드 우선순위 저장
-	ASSERT(!list_empty(&ready_list));						   // error 체크용
+	// ASSERT(!list_empty(&ready_list));						   // error 체크용
 	if (list_empty(&ready_list)) return;
 	struct list_elem *e = list_begin(&ready_list);			   // ready_list의 첫번째 elem 반환
 	struct thread *max_t = list_entry(e, struct thread, elem); // e에 해당하는 thread 저장
@@ -726,11 +728,24 @@ int64_t get_next_tick_to_awake(void)
 /*첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환*/
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 { // NULL일때 예외처리할것
+	
 	struct thread *temp1 = list_entry(a, struct thread, elem);	//list_elem *a 에 해당하는 thread 반환
 	struct thread *temp2 = list_entry(b, struct thread, elem);	//list_elem *b 에 해당하는 thread 반환
 
 	return temp1->priority > temp2->priority;
 }
+
+
+/*첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환*/
+bool cmp_dom_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{ // NULL일때 예외처리할것
+
+	struct thread *temp1 = list_entry(a, struct thread, donation_elem);	//list_elem *a 에 해당하는 thread 반환
+	struct thread *temp2 = list_entry(b, struct thread, donation_elem);	//list_elem *b 에 해당하는 thread 반환
+
+	return temp1->priority > temp2->priority;
+}
+
 
 /* priority donation을 수행하는 함수를 구현한다. */
 void donate_priority(void)
@@ -743,7 +758,7 @@ void donate_priority(void)
 
 	for (int i = 0; i < 8; i++){
 		
-		if ((cur != NULL) && (cur_lock != NULL) && (cur->priority >= cur_lock->holder->priority))
+		if (is_thread(cur) && (cur_lock != NULL) && is_thread(cur_lock->holder) && (cur->priority >= cur_lock->holder->priority))
 		{
 			cur_lock->holder->priority = cur->priority;
 		}
@@ -766,5 +781,22 @@ void refresh_priority(void){
 
 	if (first_thread->priority > cur->priority){
 		cur->priority = first_thread->priority;
+	}
+}
+
+/* lock 을 해지 했을때 donations 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현한다. */
+void remove_with_lock(struct lock *lock){
+	/* 현재 스레드의 donations 리스트를 확인하여 해지 할 lock 을 보유하고 있는 엔트리를 삭제 한다. */
+	struct thread *cur = thread_current(); 		// thread L 
+	struct list *cur_don = &cur->donations;
+	struct list_elem *e; 
+
+	if (!list_empty(cur_don)){
+		for (e = list_begin(cur_don); e != list_end(cur_don); e = list_next(e)){
+			struct thread *e_cur = list_entry(e, struct thread, donation_elem);
+			if (lock == e_cur->wait_on_lock){
+				list_remove(&e_cur->donation_elem);
+			}
+		}
 	}
 }
