@@ -4,11 +4,16 @@ Kernel command line: -q run priority-donate-sema
 Pintos booting with: 
 	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
 	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+<<<<<<< HEAD
 Calibrating timer...  155,443,200 loops/s.
+=======
+Calibrating timer...  117,760,000 loops/s.
+>>>>>>> 566c6152a88b76e783f47c4867d00302b67006ec
 Boot complete.
 Executing 'priority-donate-sema':
 (priority-donate-sema) begin
 (priority-donate-sema) Thread L acquired lock.
+<<<<<<< HEAD
 Interrupt 0x0e (#PF Page-Fault Exception) at rip=800420a6bf
  cr2=fffffffffffffff8 error=               0
 rax ffffffffffffffe0 rbx 0000000000204400 rcx 0000008004234020 rdx 0000000000000000
@@ -25,3 +30,14 @@ of the Pintos documentation for more information.
 Timer: 24 ticks
 Thread: 0 idle ticks, 24 kernel ticks, 0 user ticks
 Console: 1
+=======
+(priority-donate-sema) Thread M finished.
+(priority-donate-sema) Main thread finished.
+(priority-donate-sema) end
+Execution of 'priority-donate-sema' complete.
+Timer: 27 ticks
+Thread: 0 idle ticks, 27 kernel ticks, 0 user ticks
+Console: 591 characters output
+Keyboard: 0 keys pressed
+Powering off...
+>>>>>>> 566c6152a88b76e783f47c4867d00302b67006ec

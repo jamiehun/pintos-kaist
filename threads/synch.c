@@ -117,7 +117,7 @@ sema_up (struct semaphore *sema) {
 	if (!list_empty (&sema->waiters)){
 		//waiters_list에 (block된) thread가 있으면
 		/* 스레드가 waiters list에 있는 동안 우선순위가 변경 되었을 경우를 고려 하여 waiters list 를 우선순위로 정렬 한다. */
-		list_sort(&sema->waiters, cmp_sem_priority, NULL);	// aux ???
+		list_sort(&sema->waiters, cmp_priority, NULL);	// aux ???
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 	}	
@@ -353,7 +353,10 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
 
 	struct list* la = &sa->semaphore.waiters;
 	struct list* lb = &sb->semaphore.waiters;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 566c6152a88b76e783f47c4867d00302b67006ec
 	struct list_elem *begin_a=list_begin(la);
 	struct list_elem *begin_b=list_begin(lb);
 
