@@ -109,7 +109,7 @@ void thread_init(void)
 		.address = (uint64_t)gdt};
 	lgdt(&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&sleep_list); /* sleep_list를 초기화 */
@@ -236,6 +236,7 @@ void thread_block(void)
 	thread_current()->status = THREAD_BLOCKED;
 	schedule();
 }
+
 /* block 상태의 스레드를 ready로 바꿔줌 */
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
@@ -290,8 +291,8 @@ tid_t thread_tid(void)
 	return thread_current()->tid;
 }
 
-/* Deschedules the current thread and destroys it.  Never
-   returns to the caller. */
+/* Deschedules the current thread and destroys it.  
+   Never returns to the caller. */
 void thread_exit(void)
 {
 	ASSERT(!intr_context());
@@ -308,36 +309,38 @@ void thread_exit(void)
 }
 
 /* 현재 running 중인 스레드를 비활성화 시키고 ready_list에 삽입.*/
-/* Yields the CPU.  The current thread is not put to sleep and
+/* Yields the CPU.  
+   The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void)
 {
 	struct thread *curr = thread_current(); //현재 실행 중인 스레드
 	enum intr_level old_level;				//인터럽트 level: on/off
 
-	ASSERT(!intr_context()); // 외부 인터럽트가 들어왔으면 True / 아니면 False => 외부인터럽트가 False여야 밑으로 진행됨
+	ASSERT(!intr_context()); 	// 외부 인터럽트가 들어왔으면 True / 아니면 False => 외부인터럽트가 False여야 밑으로 진행됨
 
 	old_level = intr_disable(); // 인터럽트를 비활성하고 이전 인터럽트 상태(old_level)를 받아온다.
 
-	if (curr != idle_thread) // 현재 스레드가 idle 스레드와 같지 않다면
-	{
-		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); //현재 thread가 CPU를 양보하여 ready_list에 삽입될 때 우선순위 순서로 정렬되어 삽입
+	if (curr != idle_thread)    // 현재 스레드가 idle 스레드와 같지 않다면
+
+	{   //현재 thread가 CPU를 양보하여 ready_list에 삽입될 때 우선순위 순서로 정렬되어 삽입
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); 
 	}
+
 	do_schedule(THREAD_READY); // context switch 작업 수행 - running인 스레드를 ready로 전환.
 	intr_set_level(old_level); // 인자로 전달된 인터럽트 상태로 인터럽트 설정하고 이전 인터럽트 상태 반환
 }
 
 /* 스레드의 우선순위가 변경되었을 때 우선순위에 따라 ready_list의 우선순위와 비교하여 스케줄링(preempted) */
-/* donation 을 고려하여 thread_set_priority() 함수를 수정한다 */
+/* donation을 고려하여 thread_set_priority() 함수를 수정 */
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
 	thread_current()->init_priority = new_priority;
 
-	/* refresh_priority() 함수를 사용하여 우선순위를 변경으로 인한 donation 관련 정보를 갱신한다.
-       donation_priority(), test_max_pariority() 함수를 적절히 사용하여 
-	   priority donation 을 수행하고 스케줄링 한다. */
+	/* refresh_priority() 함수를 사용하여 우선순위를 변경으로 인한 donation 관련 정보를 갱신
+       donation_priority(), test_max_pariority() 함수를 사용하여 priority donation 을 수행하고 스케줄링 */
 
 	if (!list_empty(&thread_current()->donations)){
 		refresh_priority();
@@ -346,11 +349,11 @@ void thread_set_priority(int new_priority)
 	test_max_priority();
 }
 
-/* 현재 수행중인 스레드의 우선순위와 ready_list의 가장높은 우선순위를 비교하여 스케줄링(preempted) */
+/* 현재 수행중인 스레드의 우선순위와 ready_list의 가장 높은 우선순위를 비교하여 스케줄링(preempted) */
 void test_max_priority(void)
 {
 	int cur_priority = thread_get_priority();				   // 현재 쓰레드 우선순위 저장
-	// ASSERT(!list_empty(&ready_list));						   // error 체크용
+	// ASSERT(!list_empty(&ready_list));					   // error 체크용
 	if (list_empty(&ready_list)) return;
 	struct list_elem *e = list_begin(&ready_list);			   // ready_list의 첫번째 elem 반환
 	struct thread *max_t = list_entry(e, struct thread, elem); // e에 해당하는 thread 저장
@@ -464,10 +467,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->magic = THREAD_MAGIC;
 
 	/* Priority donation 관련 자료구조 초기화 */
+	/* list_elem은 초기화 하지 않았고, list_init에서 초기화 되고 있음 */
 	t->init_priority = priority;
 	t->wait_on_lock = NULL;   // init시에는 주소가 없을 것으로 생각
 	list_init(&t->donations);
-	// list_elem은 초기화 하지 않았고, list_init에서 초기화 되고 있음 
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -595,7 +598,7 @@ do_schedule(int status)
 	ASSERT(intr_get_level() == INTR_OFF);				// 현재 인터럽트가 없어야 하고
 	ASSERT(thread_current()->status == THREAD_RUNNING); // 현재 스레드 상태가 running일 때 실행
 	while (!list_empty(&destruction_req))
-	{							// destruction_req 리스트가 빌 때까지 하나씩 메모리 할당 해제
+	{	// destruction_req 리스트가 빌 때까지 하나씩 메모리 할당 해제
 		struct thread *victim = // victim은 destruction_req라는 list의 첫번째 elem을 가리킴
 			list_entry(list_pop_front(&destruction_req), struct thread, elem);
 		palloc_free_page(victim); // victim page를 해제
@@ -604,16 +607,16 @@ do_schedule(int status)
 	schedule(); //스케줄 함수 호출
 }
 
-/*running인 스레드를 빼내고 next 스레드를 running으로 만든다*/
+/* next thread를 thread running으로 만드는 scheduling */
 static void
 schedule(void)
 {
 	struct thread *curr = running_thread();		// do_schedule에서는 status만 바꿔줌
 	struct thread *next = next_thread_to_run(); // next run할 변수 설정
 
-	ASSERT(intr_get_level() == INTR_OFF);	// scheduling 도중에는 인터럽트가 발생하면 안 되기 때문에 INTR_OFF 상태인지 확인한다.
-	ASSERT(curr->status != THREAD_RUNNING); // CPU 소유권을 넘겨주기 전에 running 스레드는 그 상태를 running 외의 다른 상태로 바꾸어주는 작업이 되어 있어야 하고 이를 확인하는 부분이다.
-	ASSERT(is_thread(next));				// next_thread_to_run() 에 의해 올바른 thread 가 return 되었는지 확인returns true if next appears to point to a valid thread
+	ASSERT(intr_get_level() == INTR_OFF);	    // scheduling 도중에는 인터럽트가 발생하면 안 되기 때문에 INTR_OFF 상태인지 확인한다.
+	ASSERT(curr->status != THREAD_RUNNING);     // CPU 소유권을 넘겨주기 전에 running 스레드는 그 상태를 running 외의 다른 상태로 바꾸어주는 작업이 되어 있어야 하고 이를 확인하는 부분이다.
+	ASSERT(is_thread(next));				    // next_thread_to_run()에 의해 올바른 thread 가 return 되었는지 확인returns true if next appears to point to a valid thread
 	/* Mark us as running. */
 	next->status = THREAD_RUNNING;
 
@@ -678,14 +681,12 @@ void thread_sleep(int64_t ticks)
 		update_next_tick_to_awake(cur->wakeup_tick);
 		list_push_back(&sleep_list, &cur->elem);
 	}
-	do_schedule(THREAD_BLOCKED); // next를 running으로 만
+	do_schedule(THREAD_BLOCKED); // 현재 thread를 THREAD_BLOCKED로 만들고 scheduling 함
 	intr_set_level(old_level);
 }
 
 /* wakeup_tick 값이 ticks보다 작거나 같은 스레드를 깨움
- * 현재 대기중인 스레드들의 wakeup_tick 변수 중 가장 작은 값을
- * next_tick_to_awake 전역 변수에 저장
- */
+   현재 대기 중인 스레드들의 wakeup_tick 변수 중 가장 작은 값을 next_tick_to_awake 전역 변수에 저장 */
 void thread_awake(int64_t ticks)
 {
 	struct list_elem *e = list_begin(&sleep_list);
@@ -725,7 +726,8 @@ int64_t get_next_tick_to_awake(void)
 	return next_tick_to_awake;
 }
 
-/*첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환*/
+/* 첫번째 인자의 우선순위가 높으면 1을 반환,두 번째 인자의 우선순위가 높으면 0을 반환 */
+/* elem을 기준으로 priority를 비교하여 설정함 */
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 { // NULL일때 예외처리할것
 	
@@ -736,7 +738,8 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 }
 
 
-/*첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환*/
+/* 첫번째 인자의 우선순위가 높으면 1을 반환,두 번째 인자의 우선순위가 높으면 0을 반환 */
+/* donation_elem를 기준으로 priority를 비교하여 설정함 */
 bool cmp_dom_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 { // NULL일때 예외처리할것
 
@@ -747,20 +750,20 @@ bool cmp_dom_priority(const struct list_elem *a, const struct list_elem *b, void
 }
 
 
-/* priority donation을 수행하는 함수를 구현한다. */
+/* priority donation을 수행하는 함수를 구현 */
 void donate_priority(void)
 {
-	/* 현재 스레드가 기다리고 있는 lock과 연결된 모든 스레드들을 순회하며 
-	   현재 스레드의 우선순위를 lock을 보유하고 있는 스레드에게 기부한다. 
-	   (Nested donation 그림 참고, nested depth 는 8로 제한한다.) */
+	/* 현재 스레드가 기다리고 있는 lock과 연결된 모든 스레드들을 순회하며, 
+	   현재 스레드의 우선순위를 lock을 보유하고 있는 스레드에게 기부 
+	   (Nested donation 그림 참고, nested depth 는 8로 제한) */
 	struct thread *cur = thread_current();
 	struct lock *cur_lock = cur->wait_on_lock;
 
 	for (int i=0; i < 8; i++){
-		if (cur_lock == NULL){
+		if (cur_lock == NULL){ // cur->wait_on_lock이 없을시 break
 			break;
 		}
-		else{
+		else {
 			if(cur->priority > cur_lock->holder->priority)
 			{
 				cur_lock->holder->priority = cur->priority;
@@ -772,56 +775,14 @@ void donate_priority(void)
 	}
 }
 
-
-
-
-
-// 	for (int i = 0; i < 8; i++){
-// 		if (cur_lock == NULL){
-// 			break;
-// 		}
-
-// 		if (is_thread(cur) && is_thread(cur_lock->holder) && (cur->priority >= cur_lock->holder->priority))
-// 		{
-// 			cur_lock = cur->wait_on_lock;
-// 			cur_lock->holder->priority = cur->priority;
-// 		}
-		
-// 		cur = cur_lock->holder;
-// 	}
-// }
-
-// 	struct thread *cur = thread_current();
-// 	struct thread *holder;
-
-// 	for (int i = 0; i < 8; i++){
-// 		if (cur->wait_on_lock == NULL){
-// 			break;
-// 		}
-// 		else{
-// 			holder = cur->wait_on_lock->holder;
-
-// 			if (cur->priority > holder->priority){
-// 				holder->priority = cur->priority;
-			
-// 			cur = holder;
-// 		}
-// 	}
-// 	}
-// }
-
-
-// 			}
-// 		}
-// 	}
-// }
-
-/* 스레드의 우선순위가 변경 되었을때 donation을 고려하여 우선순위를 다시 결정하는 함수를 작성한다. */
+/* 스레드의 우선순위가 변경 되었을때 donation을 고려하여 우선순위를 다시 결정하는 함수를 작성 */
 void refresh_priority(void){
 	/* 현재 스레드의 우선순위를 기부받기 전의 우선순위로 변경 */
 	struct thread *cur = thread_current();
 	cur->priority = cur->init_priority;
 
+	/* 가장 우선순위가 높은 donation List의 thread와
+	   현재 thread의 우선순위를 비교하여 높은 값을 현재 thread의 우선순위로 설정 */
 	if (list_empty(&cur->donations)) return;
 	struct list_elem *first_don = list_begin(&cur->donations);
 	struct thread *first_thread = list_entry(first_don, struct thread, donation_elem);
@@ -831,18 +792,19 @@ void refresh_priority(void){
 	}
 }
 
-/* lock 을 해지 했을때 donations 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현한다. */
+/* lock을 해지 했을때 donations 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현 */
 void remove_with_lock(struct lock *lock){
-	/* 현재 스레드의 donations 리스트를 확인하여 해지 할 lock 을 보유하고 있는 엔트리를 삭제 한다. */
-	struct thread *cur = thread_current(); 		// thread L 
+
+	/* 현재 스레드의 donations 리스트를 확인하여 해지 할 lock 을 보유하고 있는 엔트리(그룹)를 삭제 */
+	struct thread *cur = thread_current(); 		
 	struct list *cur_don = &cur->donations;
 	struct list_elem *e; 
 
 	if (!list_empty(cur_don)){
-		for (e = list_begin(cur_don); e != list_end(cur_don); e = list_next(e)){
+		for (e = list_begin(cur_don); e != list_end(cur_don); e = list_next(e)){ // 순회
 			struct thread *e_cur = list_entry(e, struct thread, donation_elem);
-			if (lock == e_cur->wait_on_lock){
-				list_remove(&e_cur->donation_elem);
+			if (lock == e_cur->wait_on_lock){ // 해당 Lock과 연관되어 있는 모든 thread를 donation에서 삭제함
+				list_remove(&e_cur->donation_elem); 
 			}
 		}
 	}
