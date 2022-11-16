@@ -756,19 +756,65 @@ void donate_priority(void)
 	struct thread *cur = thread_current();
 	struct lock *cur_lock = cur->wait_on_lock;
 
-	for (int i = 0; i < 8; i++){
-		
-		if (is_thread(cur) && (cur_lock != NULL) && is_thread(cur_lock->holder) && (cur->priority >= cur_lock->holder->priority))
-		{
-			cur_lock->holder->priority = cur->priority;
+	for (int i=0; i < 8; i++){
+		if (cur_lock == NULL){
+			break;
 		}
-		
+		else{
+			if(cur->priority > cur_lock->holder->priority)
+			{
+				cur_lock->holder->priority = cur->priority;
+			}
 		cur = cur_lock->holder;
 		cur_lock = cur->wait_on_lock;
-
+		}
 
 	}
 }
+
+
+
+
+
+// 	for (int i = 0; i < 8; i++){
+// 		if (cur_lock == NULL){
+// 			break;
+// 		}
+
+// 		if (is_thread(cur) && is_thread(cur_lock->holder) && (cur->priority >= cur_lock->holder->priority))
+// 		{
+// 			cur_lock = cur->wait_on_lock;
+// 			cur_lock->holder->priority = cur->priority;
+// 		}
+		
+// 		cur = cur_lock->holder;
+// 	}
+// }
+
+// 	struct thread *cur = thread_current();
+// 	struct thread *holder;
+
+// 	for (int i = 0; i < 8; i++){
+// 		if (cur->wait_on_lock == NULL){
+// 			break;
+// 		}
+// 		else{
+// 			holder = cur->wait_on_lock->holder;
+
+// 			if (cur->priority > holder->priority){
+// 				holder->priority = cur->priority;
+			
+// 			cur = holder;
+// 		}
+// 	}
+// 	}
+// }
+
+
+// 			}
+// 		}
+// 	}
+// }
 
 /* 스레드의 우선순위가 변경 되었을때 donation을 고려하여 우선순위를 다시 결정하는 함수를 작성한다. */
 void refresh_priority(void){
