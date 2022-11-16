@@ -192,43 +192,53 @@ lock_init (struct lock *lock) {
 	sema_init (&lock->semaphore, 1);
 }
 
-/* lock을 요청 */
-/* Acquires LOCK, sleeping until it becomes available if
-   necessary.  The lock must not already be held by the current
-   thread.
+// /* lock을 요청 */
+// /* Acquires LOCK, sleeping until it becomes available if
+//    necessary.  The lock must not already be held by the current
+//    thread.
 
-   This function may sleep, so it must not be called within an
-   interrupt handler.  This function may be called with
-   interrupts disabled, but interrupts will be turned back on if
-   we need to sleep. */
+//    This function may sleep, so it must not be called within an
+//    interrupt handler.  This function may be called with
+//    interrupts disabled, but interrupts will be turned back on if
+//    we need to sleep. */
+// void
+// lock_acquire (struct lock *lock) { // lock 획득을 원하는 주체 = cur_thread
+// 	ASSERT (lock != NULL);
+// 	ASSERT (!intr_context ());
+// 	ASSERT (!lock_held_by_current_thread (lock));	// current_thread가 unlock이어야 통과
+// 	struct thread *cur = thread_current();
+
+// 	/* 해당 lock 의 holder가 존재 한다면 아래 작업을 수행한다. */
+// 	if (is_thread(lock->holder)){
+
+// 		/* 현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장 */
+// 		cur->wait_on_lock = &lock;
+
+// 		/* multiple donation 을 고려하기 위해 *이전상태*의 우선순위를 기억 */
+// 		// lock->holder->init_priority = lock->holder->priority; // ??? (새로운 변수를 설정하는 것이 맞나?)
+
+// 		/* donation 을 받은 스레드의 thread 구조체를 list로 관리한다. */
+// 		// list_push_back(&lock->holder->donations, &cur->donation_elem); // ??? list_insert_order 고려!
+// 		list_insert_ordered(&lock->holder->donations, &cur->donation_elem, cmp_dom_priority, NULL); // ??? list_insert_order 고려!
+
+// 		/* priority donation 수행하기 위해 donate_priority() 함수 호출 */
+// 		donate_priority();
+
+// 	}
+// 	sema_down (&lock->semaphore); // ?????????????
+// 	thread_current()->wait_on_lock = NULL;
+	
+// 	/* lock을 획득 한 후 lock holder 를 갱신한다. */
+// 	lock->holder = thread_current ();
+// }
+
 void
-lock_acquire (struct lock *lock) { // lock 획득을 원하는 주체 = cur_thread
+lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
-	ASSERT (!lock_held_by_current_thread (lock));	// current_thread가 unlock이어야 통과
-	struct thread *cur = thread_current();
+	ASSERT (!lock_held_by_current_thread (lock));
 
-	/* 해당 lock 의 holder가 존재 한다면 아래 작업을 수행한다. */
-	if (is_thread(lock->holder)){
-
-		/* 현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장 */
-		cur->wait_on_lock = &lock;
-
-		/* multiple donation 을 고려하기 위해 *이전상태*의 우선순위를 기억 */
-		// lock->holder->init_priority = lock->holder->priority; // ??? (새로운 변수를 설정하는 것이 맞나?)
-
-		/* donation 을 받은 스레드의 thread 구조체를 list로 관리한다. */
-		// list_push_back(&lock->holder->donations, &cur->donation_elem); // ??? list_insert_order 고려!
-		list_insert_ordered(&lock->holder->donations, &cur->donation_elem, cmp_dom_priority, NULL); // ??? list_insert_order 고려!
-
-		/* priority donation 수행하기 위해 donate_priority() 함수 호출 */
-		donate_priority();
-
-	}
-	sema_down (&lock->semaphore); // ?????????????
-	thread_current()->wait_on_lock = NULL;
-	
-	/* lock을 획득 한 후 lock holder 를 갱신한다. */
+	sema_down (&lock->semaphore);
 	lock->holder = thread_current ();
 }
 
