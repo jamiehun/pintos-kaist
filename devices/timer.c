@@ -131,11 +131,11 @@ timer_print_stats (void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++;
+	ticks++; // ticks는 타이머 인터럽트가 발생한 횟수를 의미함, 타이머 인터럽트는 CPU에 내장된 타이머가 자동으로 발생시킴
 	thread_tick ();
 
 	int64_t temp = get_next_tick_to_awake();
-	if(ticks>=temp)
+	if(ticks==temp) // ticks는 타이머 인터럽트가 발생할 때마다 작동하므로 각 발생시마다 get_next_tick_to_awake를 체크해줄 수 있음
 	{
 		thread_awake(ticks);
 

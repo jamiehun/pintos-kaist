@@ -16,6 +16,7 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
+/* struct thread *holder, struct semaphore semaphore를 갖는 struct*/
 /* Lock. */
 struct lock {
 	struct thread *holder;      /* Thread holding lock (for debugging). */
@@ -28,6 +29,7 @@ bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
 
+/* strct list waiters를 갖는 struct */
 /* Condition variable. */
 struct condition {
 	struct list waiters;        /* List of waiting threads. */
