@@ -755,12 +755,13 @@ void donate_priority(void)
 	   (Nested donation 그림 참고, nested depth 는 8로 제한한다.) */
 	struct thread *cur = thread_current();
 	struct lock *cur_lock = cur->wait_on_lock;
+	int cur_priority = cur->priority;
 
 	for (int i = 0; i < 8; i++){
 		
-		if (is_thread(cur) && (cur_lock != NULL) && is_thread(cur_lock->holder) && (cur->priority >= cur_lock->holder->priority))
+		if ((cur!= NULL) && (cur_lock!=NULL) && (cur_priority > cur_lock->holder->priority))
 		{
-			cur_lock->holder->priority = cur->priority;
+			cur_lock->holder->priority = cur_priority;
 		}
 		
 		cur = cur_lock->holder;
