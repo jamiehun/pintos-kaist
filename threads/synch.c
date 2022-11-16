@@ -212,7 +212,7 @@ lock_acquire (struct lock *lock) { // lock 획득을 원하는 주체 = cur_thre
 	if (is_thread(lock->holder)){
 
 		/* 현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장 */
-		cur->wait_on_lock = lock;
+		cur->wait_on_lock = &lock;
 
 		/* multiple donation 을 고려하기 위해 *이전상태*의 우선순위를 기억 */
 		// lock->holder->init_priority = lock->holder->priority; // ??? (새로운 변수를 설정하는 것이 맞나?)
