@@ -33,6 +33,9 @@ process_init (void) {
 	struct thread *current = thread_current ();
 }
 
+/* FILE_NAME으로부터 load된 "initd"라는 첫번째 userland program을 시작한다. 
+   thread_creat()해서 thread생성 후 tid 반환 */
+/* 프로세스(쓰레드)를 생성하는 함수를 호출하고 tid를 반환한다 */
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
  * The new thread may be scheduled (and may even exit)
  * before process_create_initd() returns. Returns the initd's
@@ -42,15 +45,19 @@ tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
-
+	//(추측)file_name 문자열을 파싱(첫번째 토큰)
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
+	//(추측)커맨드라인에서 프로세스이름 확인 
 	strlcpy (fn_copy, file_name, PGSIZE);
-
+	
 	/* Create a new thread to execute FILE_NAME. */
+	// file_name: 스레드이름(문자열), PRI_DEFAULT: 스레드우선순위(31)
+	// initd: 생성된 스레드가 실행할 함수를 가리키는 포인터, fn_copy: start_process 함수를 수행할 때 사용하는 인자값
+	// initd : 1st argument(rdi) , fn_copy : 2nd argument(rsi)
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
@@ -158,13 +165,16 @@ error:
 	thread_exit ();
 }
 
+/* (한양대 : start_process, CSAPP p.721) 프로그램을 메모리에 적재(load) 후 프로그램 시작*/
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
-
+	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
+	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
+	//??인터럽트 프레임 초기화
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -175,21 +185,26 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
+	
+	//Argument parsing (커맨드 라인 Parsing 하여 인자 확인)
 
 	/* And then load the binary */
+	// file_name : 프로그램(실행파일) 이름
 	success = load (file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
-	if (!success)
+	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
 
 	/* Start switched process. */
+	// 성공하면 유저 프로그램을 실행한다
+	// do interrupt return
 	do_iret (&_if);
 	NOT_REACHED ();
 }
 
-
+/* 자식프로세스가 종료될 때 까지 대기(현재는 구현이 안됨)*/
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
  * exception), returns -1.  If TID is invalid or if it was not a
@@ -316,8 +331,9 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
 		bool writable);
 
+/* 메모리를 할당받고 사용자 프로그램을 메모리에 적재*/
 /* Loads an ELF executable from FILE_NAME into the current thread.
- * Stores the executable's entry point into *RIP
+ * Stores the executable's entry point into *RIP(프로그램 카운터:실행할 다음 인스트럭션의 메모리 주소를 가리키는 포인터)
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 static bool
@@ -330,12 +346,15 @@ load (const char *file_name, struct intr_frame *if_) {
 	int i;
 
 	/* Allocate and activate page directory. */
+	/* 페이지 디렉토리 생성 */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
+	/* 페이지 테이블 활성화 */
 	process_activate (thread_current ());
 
 	/* Open executable file. */
+	/* 프로그램파일 Open */
 	file = filesys_open (file_name);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
@@ -343,6 +362,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 
 	/* Read and verify executable header. */
+	/* ELF파일의 헤더정보를 읽어와 저장*/
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
 			|| ehdr.e_type != 2
@@ -357,6 +377,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
 	for (i = 0; i < ehdr.e_phnum; i++) {
+		/* 배치정보를 읽어와 저장. */
 		struct Phdr phdr;
 
 		if (file_ofs < 0 || file_ofs > file_length (file))
@@ -397,6 +418,7 @@ load (const char *file_name, struct intr_frame *if_) {
 						read_bytes = 0;
 						zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
 					}
+					/* 배치정보를통해 파일을 메모리에 적재. */
 					if (!load_segment (file, file_page, (void *) mem_page,
 								read_bytes, zero_bytes, writable))
 						goto done;
@@ -408,12 +430,22 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 
 	/* Set up stack. */
+	// 스택 초기화
 	if (!setup_stack (if_))
 		goto done;
 
 	/* Start address. */
+	// text세그먼트 시작 주소
 	if_->rip = ehdr.e_entry;
 
+	// 인자들을 스택에 삽입(인자 전달)
+	/* 유저스택에 프로그램이름과 인자들을 저장하는 함수 */
+	/* parse: 프로그램이름과 인자가 저장되어있는 메모리공간, count: 인자의개수, rsp: 스택포인터를가리키는주소 */
+	/* argument_stack() 함수를 호출할 시 인자 값을 스택에 오른쪽에서 왼쪽 순으로 저장한다. */
+	/* Return Address는 Caller(함수를 호출하는 부분)의 다음 수행 명령어 주소를 의미한다. */
+	/* Callee(호출 받은 함수)의 리턴 값은 rax 레지스터에 저장된다. */
+
+	// void argument_stack(char **parse,int count,void **rsp)
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
