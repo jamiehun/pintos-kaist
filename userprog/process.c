@@ -70,9 +70,7 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
 	process_init ();
-
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -169,9 +167,12 @@ error:
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 int
-process_exec (void *f_name) {
+process_exec (void *f_name) {	// f_name = 'args-single onearg'
+	// printf("========hello========\n");
 	char *file_name = f_name;
 	bool success;
+
+
 	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
 	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
 	//??인터럽트 프레임 초기화
@@ -192,6 +193,7 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	// file_name : 프로그램(실행파일) 이름
 	success = load (file_name, &_if);
+
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -220,6 +222,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	while(1);
 	return -1;
 }
 
@@ -338,7 +341,23 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 static bool
-load (const char *file_name, struct intr_frame *if_) {
+load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-single onearg'
+	/* parsing */
+	char *token, *save_ptr;
+    char *arg_list[100];
+    int idx=0;
+	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr))
+    {
+    	// printf ("************token'%s'\n", token);
+        arg_list[idx]=token;
+        // printf("************arg_list '%s'\n",arg_list[i]);
+		idx++;
+    }
+
+	memcpy(file_name,arg_list[0],strlen(arg_list[0])+1);
+	printf("======strlen0: %d strlen1: %d\n", strlen(arg_list[0]), strlen(arg_list[1]));
+	printf("======file_name after parsing : %s\n",file_name);
+
 	struct thread *t = thread_current ();
 	struct ELF ehdr;
 	struct file *file = NULL;
@@ -354,6 +373,8 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* 페이지 테이블 활성화 */
 	process_activate (thread_current ());
 
+	printf("**********flag1\n");
+
 	/* Open executable file. */
 	/* 프로그램파일 Open */
 	file = filesys_open (file_name);
@@ -361,6 +382,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+	printf("**********flag2\n");
 
 	/* Read and verify executable header. */
 	/* ELF파일의 헤더정보를 읽어와 저장*/
@@ -374,6 +396,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
+	printf("**********flag3\n");
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -429,11 +452,13 @@ load (const char *file_name, struct intr_frame *if_) {
 				break;
 		}
 	}
+	printf("**********flag4\n");
 
 	/* Set up stack. */
 	// 스택 초기화
 	if (!setup_stack (if_))
 		goto done;
+	printf("**********flag5\n");
 
 	/* Start address. */
 	// text세그먼트 시작 주소
@@ -446,7 +471,8 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* Return Address는 Caller(함수를 호출하는 부분)의 다음 수행 명령어 주소를 의미한다. */
 	/* Callee(호출 받은 함수)의 리턴 값은 rax 레지스터에 저장된다. */
 
-	// void argument_stack(char **parse,int count,void **rsp)
+	argument_stack(arg_list,idx,if_);
+	printf("**********flag6\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
@@ -458,6 +484,50 @@ done:
 	return success;
 }
 
+void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
+	int i,j;
+	int cnt=0;
+	for (int i=idx-1; idx>-1; i--)
+	{
+		cnt+=strlen(arg_list[i])+1;
+		printf("********cnt : %d\n",cnt);
+		for (j=strlen(arg_list[i]); j>-1 ; j--)
+		{
+			printf("***** j : %d\n",j);
+			if_->rsp=if_->rsp-1;
+			*(char*)if_->rsp=arg_list[i][j];
+			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
+			printf("==rsp addr %d\n",if_->rsp);
+		}
+		if (idx==0)
+		{	if_->rsp=if_->rsp-1;
+			if_->rsp=(void*) 0;
+		}
+	}
+	void* ret_addr=0;
+	/* word-align*/
+
+	int align = 8 - (cnt % 8);
+	for (int k=0; k < align ; k++)
+	{
+		if_->rsp=if_->rsp-1;
+		*(char*)if_->rsp=(uint8_t)0;
+		printf("&&&&& rsp %d\n",if_->rsp);
+	}
+
+	// for (int i=idx-1; idx>-1; i--)
+	// {
+	// 	for (j=strlen(arg_list[i]); j>-1 ; j--)
+	// 	{
+	// 		printf("***** j : %d\n",j);
+	// 		if_->rsp=if_->rsp-1;
+	// 		*(char*)if_->rsp=arg_list[i][j];
+	// 		printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
+	// 	}
+	// }
+	
+
+}
 
 /* Checks whether PHDR describes a valid, loadable segment in
  * FILE and returns true if so, false otherwise. */
