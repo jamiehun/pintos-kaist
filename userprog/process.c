@@ -199,7 +199,7 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	palloc_free_page (file_name);
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
-
+	hex_dump(_if.rsp,_if.rsp,KERN_BASE-_if.rsp,true);
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
@@ -354,6 +354,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		idx++;
     }
 
+
 	memcpy(file_name,arg_list[0],strlen(arg_list[0])+1);
 	printf("======strlen0: %d strlen1: %d\n", strlen(arg_list[0]), strlen(arg_list[1]));
 	printf("======file_name after parsing : %s\n",file_name);
@@ -487,6 +488,8 @@ done:
 void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 	int i,j;
 	int cnt=0;
+	int start_addr=if_->rsp;
+	printf("*******start %p \n",if_->rsp);
 	for (int i=idx-1; idx>-1; i--)
 	{
 		cnt+=strlen(arg_list[i])+1;
@@ -499,33 +502,37 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
 			printf("==rsp addr %d\n",if_->rsp);
 		}
-		if (idx==0)
-		{	if_->rsp=if_->rsp-1;
-			if_->rsp=(void*) 0;
+		if (i==0){
+		/* word-align*/
+		int align = 8 - (cnt % 8);
+		for (int k=0; k < align ; k++)
+		{
+			if_->rsp=if_->rsp-1;
+			*(char*)if_->rsp=(uint8_t)0;
+			printf("&&&&& rsp %d\n",if_->rsp);
+		}
+
+		for (i=idx; i>-1; i--)
+		{
+			// printf(">>>%d",i);
+			if_->rsp = if_->rsp-8;
+			if (i==idx)
+				*(char*)if_->rsp=(char *)0;
+			else{
+				printf("strlen %d\n",strlen(arg_list[i]));
+				*(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
+				printf(">>>>> %d\n",start_addr-strlen(arg_list[i])-1);
+				start_addr=start_addr-strlen(arg_list[i])-1;
+			}
+		}
+		if_->rsp = if_->rsp-8;
+		if_->rsp = (void*) 0;
+		if_->R.rdi=idx;
+		if_->R.rsi=start_addr;
 		}
 	}
-	void* ret_addr=0;
-	/* word-align*/
 
-	int align = 8 - (cnt % 8);
-	for (int k=0; k < align ; k++)
-	{
-		if_->rsp=if_->rsp-1;
-		*(char*)if_->rsp=(uint8_t)0;
-		printf("&&&&& rsp %d\n",if_->rsp);
-	}
 
-	// for (int i=idx-1; idx>-1; i--)
-	// {
-	// 	for (j=strlen(arg_list[i]); j>-1 ; j--)
-	// 	{
-	// 		printf("***** j : %d\n",j);
-	// 		if_->rsp=if_->rsp-1;
-	// 		*(char*)if_->rsp=arg_list[i][j];
-	// 		printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
-	// 	}
-	// }
-	
 
 }
 
