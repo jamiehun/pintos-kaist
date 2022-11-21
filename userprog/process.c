@@ -197,13 +197,16 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
+	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
 	hex_dump(_if.rsp,_if.rsp,KERN_BASE-_if.rsp,true);
+	printf("hello\n");
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
 	do_iret (&_if);
+	printf("hello\n");
 	NOT_REACHED ();
 }
 
@@ -473,6 +476,8 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* Callee(호출 받은 함수)의 리턴 값은 rax 레지스터에 저장된다. */
 
 	argument_stack(arg_list,idx,if_);
+
+
 	printf("**********flag6\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
@@ -482,6 +487,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
+	printf("**********flag7\n");
 	return success;
 }
 
@@ -490,7 +496,7 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 	int cnt=0;
 	int start_addr=if_->rsp;
 	printf("*******start %p \n",if_->rsp);
-	for (int i=idx-1; idx>-1; i--)
+	for (int i=idx-1; i>-1; i--)
 	{
 		cnt+=strlen(arg_list[i])+1;
 		printf("********cnt : %d\n",cnt);
@@ -500,7 +506,7 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 			if_->rsp=if_->rsp-1;
 			*(char*)if_->rsp=arg_list[i][j];
 			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
-			printf("==rsp addr %d\n",if_->rsp);
+			printf("==rsp addr %p\n",if_->rsp);
 		}
 		if (i==0){
 		/* word-align*/
@@ -508,27 +514,40 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 		for (int k=0; k < align ; k++)
 		{
 			if_->rsp=if_->rsp-1;
-			*(char*)if_->rsp=(uint8_t)0;
-			printf("&&&&& rsp %d\n",if_->rsp);
+			memset(if_->rsp, 0, sizeof(char));
+			printf("&&&&& rsp %p\n",if_->rsp);
 		}
 
 		for (i=idx; i>-1; i--)
 		{
 			// printf(">>>%d",i);
 			if_->rsp = if_->rsp-8;
+
+
+
+
 			if (i==idx)
-				*(char*)if_->rsp=(char *)0;
+				memset(if_->rsp, 0, sizeof(char *));
 			else{
 				printf("strlen %d\n",strlen(arg_list[i]));
-				*(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
-				printf(">>>>> %d\n",start_addr-strlen(arg_list[i])-1);
 				start_addr=start_addr-strlen(arg_list[i])-1;
+				memcpy(if_->rsp, &start_addr, sizeof(start_addr));
+				printf("<<<<< %p\n",(start_addr));
+				// *(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
+				printf(">>>>> %p\n",(if_->rsp));
+				printf(">>>>> %p\n",(start_addr-strlen(arg_list[i])-1));
+				// start_addr=start_addr-strlen(arg_list[i])-1;
 			}
 		}
 		if_->rsp = if_->rsp-8;
-		if_->rsp = (void*) 0;
+		memset(if_->rsp, 0, sizeof(void (*)()));
+		// if_->rsp = (void*) 0;
 		if_->R.rdi=idx;
-		if_->R.rsi=start_addr;
+		if_->R.rsi=if_->rsp+8;
+		printf("========****** if_->rsp %p\n",if_->rsp+8);
+		printf("========****** R.rsi %p\n",if_->R.rsi);
+		printf("========****** R.rdi %d\n",if_->R.rdi);
+		
 		}
 	}
 
