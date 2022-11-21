@@ -135,8 +135,7 @@ sema_up (struct semaphore *sema) {
 
 	/* priority preemption 코드 추가*/
 	/* yield시 do_schedule도 같이 실행되며 context switching이 일어남 */
-	if(!intr_context())
-		thread_yield();	
+	test_max_priority();	
 
 	intr_set_level (old_level);
 }
