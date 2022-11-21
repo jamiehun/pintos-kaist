@@ -10,5 +10,7 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (struct thread *next);
 void argument_stack(char **arg_list,int idx,struct intr_frame *if_);
+// void argument_stack(int idx,char **arg_list,struct intr_frame *if_);
+
 
 #endif /* userprog/process.h */

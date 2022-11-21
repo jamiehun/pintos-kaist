@@ -194,7 +194,6 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	// file_name : 프로그램(실행파일) 이름
 	success = load (file_name, &_if);
 
-
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)	//메모리 적재 실패시 -1 반환
@@ -203,6 +202,8 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
+	printf("=========++rip = %p\n",_if.rip);
+
 	do_iret (&_if);
 	NOT_REACHED ();
 }
@@ -464,6 +465,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* Start address. */
 	// text세그먼트 시작 주소
 	if_->rip = ehdr.e_entry;
+	printf(">>>>>>rip = %p\n",if_->rip);
 
 	// 인자들을 스택에 삽입(인자 전달)
 	/* 유저스택에 프로그램이름과 인자들을 저장하는 함수 */
@@ -486,53 +488,70 @@ done:
 }
 
 void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
+	printf("<<<<<<<rip = %p\n",if_->rip);
+
+	printf("hello!\n");
 	int i,j;
 	int cnt=0;
 	int start_addr=if_->rsp;
+	char *save_addr[100];
 	printf("*******start %p \n",if_->rsp);
-	for (int i=idx-1; idx>-1; i--)
-	{
-		cnt+=strlen(arg_list[i])+1;
-		printf("********cnt : %d\n",cnt);
-		for (j=strlen(arg_list[i]); j>-1 ; j--)
-		{
-			printf("***** j : %d\n",j);
-			if_->rsp=if_->rsp-1;
-			*(char*)if_->rsp=arg_list[i][j];
-			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
-			printf("==rsp addr %d\n",if_->rsp);
-		}
-		if (i==0){
-		/* word-align*/
-		int align = 8 - (cnt % 8);
-		for (int k=0; k < align ; k++)
-		{
-			if_->rsp=if_->rsp-1;
-			*(char*)if_->rsp=(uint8_t)0;
-			printf("&&&&& rsp %d\n",if_->rsp);
-		}
 
-		for (i=idx; i>-1; i--)
-		{
-			// printf(">>>%d",i);
-			if_->rsp = if_->rsp-8;
-			if (i==idx)
-				*(char*)if_->rsp=(char *)0;
-			else{
-				printf("strlen %d\n",strlen(arg_list[i]));
-				*(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
-				printf(">>>>> %d\n",start_addr-strlen(arg_list[i])-1);
-				start_addr=start_addr-strlen(arg_list[i])-1;
-			}
-		}
-		if_->rsp = if_->rsp-8;
-		if_->rsp = (void*) 0;
-		if_->R.rdi=idx;
-		if_->R.rsi=start_addr;
-		}
+	for (i=idx-1;i>-1;i--)
+	{
+		int arg_len=strlen(arg_list[i])+1;
+		if_->rsp=if_->rsp-(arg_len);
+		memcpy(if_->rsp,arg_list[i],arg_len);
+		save_addr[i]=if_->rsp;
+	}
+	// for (i=idx-1; i>-1; i--)
+	// {
+	// 	cnt+=strlen(arg_list[i])+1;
+	// 	printf("********cnt : %d\n",cnt);
+	// 	for (j=strlen(arg_list[i]); j>-1 ; j--)
+	// 	{
+	// 		printf("***** j : %d\n",j);
+	// 		if_->rsp=if_->rsp-1;
+	// 		*(char*)if_->rsp=arg_list[i][j];
+	// 		printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
+	// 		printf("==rsp addr %d\n",if_->rsp);
+	// 	}
+	// }
+
+	// if (i==0){
+	/* word-align*/
+	int align = 8 - (cnt % 8);
+	for (int k=0; k < align ; k++)
+	{
+		if_->rsp=if_->rsp-1;
+		*(char*)if_->rsp=(uint8_t)0;
+		printf("&&&&& rsp %d\n",if_->rsp);
 	}
 
+	for (i=idx; i>-1; i--)
+	{
+		// printf(">>>%d",i);
+		if_->rsp = if_->rsp-8;
+		if (i==idx)
+			// *(char*)if_->rsp=(char *)0;
+		memset(if_->rsp,NULL,sizeof(char *));
 
+		else{
+			printf("strlen %d\n",strlen(arg_list[i]));
+			*(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
+			printf(">>>>> %d\n",start_addr-strlen(arg_list[i])-1);
+			start_addr=start_addr-strlen(arg_list[i])-1;
+		}
+	}
+	// }
+	// memcpy(if_->rsp,if_->rsp-8,sizeof(char*));
+	if_->rsp = if_->rsp-8;
+	// if_->rsp = (void*) 0;
+	memset(if_->rsp,(void *)0,sizeof(void *));
+	if_->R.rdi=idx;
+	if_->R.rsi=start_addr;
+	printf("bye1\n");
+	printf("bye2\n");
 
 }
 
