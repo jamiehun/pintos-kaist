@@ -175,6 +175,7 @@ process_exec (void *f_name) {
 	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
 	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
 	//??인터럽트 프레임 초기화
+	//  Setup virtual address of the program: code, data, stack (user stack) (추측)
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
