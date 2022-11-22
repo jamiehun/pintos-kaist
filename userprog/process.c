@@ -176,10 +176,15 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
 	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
 	//??인터럽트 프레임 초기화
-	//  Setup virtual address of the program: code, data, stack (user stack) (추측)
+	// Setup virtual address of the program: code, data, stack (user stack) (추측)
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
+	/* Context change가 일어날 때 thread_launch()와 do_iret() 함수에서 아래와 같은 과정이 이루어지며, 이 과정에서 interrupt frame이 활용됩니다.
+	 * (1) 현재 cpu의 register 값들을 current thread(T1)의 intr_frame (tf)로 옮긴다.
+	 * (2) 새롭게 실행할 thread(T2)의 intr_frame에 있는 값을 cpu register로 옮긴다.
+	 * (3) iretq instruction을 활용해 T2에서 실행하던 코드를 마저 실행한다.
+	 * 정리하자면, intr_frame에 들어가야 할 내용은 cpu register에 있는 값입니다. 따라서 kernel memory에 별도로 저장되어 있는 값이 아닙니다. */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
@@ -200,8 +205,11 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
-	hex_dump(_if.rsp,_if.rsp,KERN_BASE-_if.rsp,true);
+
+	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
 	printf("hello\n");
+	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
+	hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
@@ -357,7 +365,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		idx++;
     }
 
-
 	memcpy(file_name,arg_list[0],strlen(arg_list[0])+1);
 	printf("======strlen0: %d strlen1: %d\n", strlen(arg_list[0]), strlen(arg_list[1]));
 	printf("======file_name after parsing : %s\n",file_name);
@@ -504,10 +511,12 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 		{
 			printf("***** j : %d\n",j);
 			if_->rsp=if_->rsp-1;
-			*(char*)if_->rsp=arg_list[i][j];
+			memset(if_->rsp, arg_list[i][j], sizeof(char));
+			// *(char*)if_->rsp=arg_list[i][j];
 			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
 			printf("==rsp addr %p\n",if_->rsp);
 		}
+		printf("&&&&&&&&%s&&&&&&&&&\n", arg_list[i]);
 		if (i==0){
 		/* word-align*/
 		int align = 8 - (cnt % 8);
@@ -523,9 +532,6 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 			// printf(">>>%d",i);
 			if_->rsp = if_->rsp-8;
 
-
-
-
 			if (i==idx)
 				memset(if_->rsp, 0, sizeof(char *));
 			else{
@@ -540,10 +546,12 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 			}
 		}
 		if_->rsp = if_->rsp-8;
-		memset(if_->rsp, 0, sizeof(void (*)()));
+		memset(if_->rsp, 0, sizeof(void *));
 		// if_->rsp = (void*) 0;
 		if_->R.rdi=idx;
-		if_->R.rsi=if_->rsp+8;
+		if_->R.rsi=if_->rsp + 8; 
+		// memcpy(if_->R.rsi, if_->rsp + 8);
+
 		printf("========****** if_->rsp %p\n",if_->rsp+8);
 		printf("========****** R.rsi %p\n",if_->R.rsi);
 		printf("========****** R.rdi %d\n",if_->R.rdi);
@@ -552,7 +560,7 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 	}
 
 
-
+printf("FINAL!!!!!!!!!!\n");
 }
 
 /* Checks whether PHDR describes a valid, loadable segment in
