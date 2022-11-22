@@ -168,7 +168,6 @@ error:
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {	// f_name = 'args-single onearg'
-	// printf("========hello========\n");
 	char *file_name = f_name;
 	bool success;
 
@@ -202,19 +201,15 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
-	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
 
-	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
-	printf("hello\n");
-	printf("===========^^^^^^%p^^^^=======\n", _if.rsp);
 	hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
+	
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
 	do_iret (&_if);
-	printf("hello\n");
 	NOT_REACHED ();
 }
 
@@ -366,8 +361,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
     }
 
 	memcpy(file_name,arg_list[0],strlen(arg_list[0])+1);
-	printf("======strlen0: %d strlen1: %d\n", strlen(arg_list[0]), strlen(arg_list[1]));
-	printf("======file_name after parsing : %s\n",file_name);
 
 	struct thread *t = thread_current ();
 	struct ELF ehdr;
@@ -384,8 +377,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* 페이지 테이블 활성화 */
 	process_activate (thread_current ());
 
-	printf("**********flag1\n");
-
 	/* Open executable file. */
 	/* 프로그램파일 Open */
 	file = filesys_open (file_name);
@@ -393,7 +384,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-	printf("**********flag2\n");
 
 	/* Read and verify executable header. */
 	/* ELF파일의 헤더정보를 읽어와 저장*/
@@ -407,7 +397,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
-	printf("**********flag3\n");
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -463,13 +452,11 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 				break;
 		}
 	}
-	printf("**********flag4\n");
 
 	/* Set up stack. */
 	// 스택 초기화
 	if (!setup_stack (if_))
 		goto done;
-	printf("**********flag5\n");
 
 	/* Start address. */
 	// text세그먼트 시작 주소
@@ -484,8 +471,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 
 	argument_stack(arg_list,idx,if_);
 
-
-	printf("**********flag6\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
@@ -494,7 +479,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
-	printf("**********flag7\n");
 	return success;
 }
 
@@ -502,65 +486,44 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
 	int i,j;
 	int cnt=0;
 	int start_addr=if_->rsp;
-	printf("*******start %p \n",if_->rsp);
+
 	for (int i=idx-1; i>-1; i--)
 	{
 		cnt+=strlen(arg_list[i])+1;
-		printf("********cnt : %d\n",cnt);
 		for (j=strlen(arg_list[i]); j>-1 ; j--)
 		{
-			printf("***** j : %d\n",j);
 			if_->rsp=if_->rsp-1;
 			memset(if_->rsp, arg_list[i][j], sizeof(char));
-			// *(char*)if_->rsp=arg_list[i][j];
-			printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
-			printf("==rsp addr %p\n",if_->rsp);
+		
 		}
-		printf("&&&&&&&&%s&&&&&&&&&\n", arg_list[i]);
+	
 		if (i==0){
+	
 		/* word-align*/
 		int align = 8 - (cnt % 8);
 		for (int k=0; k < align ; k++)
 		{
 			if_->rsp=if_->rsp-1;
 			memset(if_->rsp, 0, sizeof(char));
-			printf("&&&&& rsp %p\n",if_->rsp);
 		}
 
 		for (i=idx; i>-1; i--)
 		{
-			// printf(">>>%d",i);
 			if_->rsp = if_->rsp-8;
 
 			if (i==idx)
 				memset(if_->rsp, 0, sizeof(char *));
-			else{
-				printf("strlen %d\n",strlen(arg_list[i]));
+			else {
 				start_addr=start_addr-strlen(arg_list[i])-1;
 				memcpy(if_->rsp, &start_addr, sizeof(start_addr));
-				printf("<<<<< %p\n",(start_addr));
-				// *(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
-				printf(">>>>> %p\n",(if_->rsp));
-				printf(">>>>> %p\n",(start_addr-strlen(arg_list[i])-1));
-				// start_addr=start_addr-strlen(arg_list[i])-1;
 			}
 		}
 		if_->rsp = if_->rsp-8;
 		memset(if_->rsp, 0, sizeof(void *));
-		// if_->rsp = (void*) 0;
 		if_->R.rdi=idx;
 		if_->R.rsi=if_->rsp + 8; 
-		// memcpy(if_->R.rsi, if_->rsp + 8);
-
-		printf("========****** if_->rsp %p\n",if_->rsp+8);
-		printf("========****** R.rsi %p\n",if_->R.rsi);
-		printf("========****** R.rdi %d\n",if_->R.rdi);
-		
 		}
 	}
-
-
-printf("FINAL!!!!!!!!!!\n");
 }
 
 /* Checks whether PHDR describes a valid, loadable segment in
