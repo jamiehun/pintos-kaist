@@ -9,26 +9,13 @@
 #include "intrinsic.h"
 #include "threads/mmu.h"
 #include "threads/init.h"
+#include "filesys/filesys.h"
 
 
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
-void halt(void);
-void exit(int status);
-tid_t fork(const char *thread_name);
-int exec(const char *cmd_line);
-int wait(tid_t pid);
-bool create(const char *file, unsigned initial_size);
-bool remove(const char *file);
-int open(const char *file);
-int filesize(int fd);
-int read(int fd, void *buffer, unsigned size);
-int write(int fd, const void *buffer, unsigned size);
-void seek(int fd, unsigned position);
-unsigned tell(int fd);
-void close(int fd);
 
 /* System call.
  *
@@ -60,22 +47,21 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
-	uint64_t number = f->R.rax;
 
-	switch(number)
+	switch(f->R.rax)
 	{
 		
-	// System call 0 : HALT (완료)
+	// System Call 0 : Halt
 	case SYS_HALT :
 	{
 		halt();
 		break;
 	}
 
-
+	// System Call 1 : Exit
 	case SYS_EXIT :
 	{
-
+		exit(f->R.rdi);
 		break;
 	}
 
@@ -100,17 +86,17 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
-
+	// System Call 5 : Create
 	case SYS_CREATE :
 	{
-
+		create(f->R.rdi, f->R.rsi);
 		break;
 	}
 
-    //SYS4 : WAIT
+    // System Call 6 : Remove
 	case SYS_REMOVE :
 	{
-
+		remove(f->R.rdi);
 		break;
 	}
 
@@ -165,7 +151,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	}
 
 
-	printf ("system call!\n");
+	// printf ("system call!\n");
 	thread_exit ();
 }
 
@@ -193,14 +179,40 @@ check_address(void *addr)
 		process_exit();
 }
 
+/* System Call 0 : Halt */
 void
 halt (void){
 	power_off();
 }
 
+/* System Call 1 : Create */
+/* 한양대, pseudo code 적용 완료*/
+void
+exit (int status){
+	struct thread *cur = thread_current();
+	printf("%s: exit(%d)\n", cur->name, status); // 한양대 기준
+	thread_exit(); 
+}
+
+/* System Call 5 : Create */
+bool create(const char *file, unsigned initial_size){
+	check_address(file);
+	return filesys_create(file, initial_size) ;
+}
+
+/* System Call 6 : Remove */
+bool remove (const char *file){
+	check_address(file);
+	return filesys_remove(file);
+}
+
+
+/* System Call 10 : Write */
 // write 함수 초기 설정 ???
 int write(int fd, const void *buffer, unsigned size)
 {
 	putbuf(buffer, size);
 	return size;
 }
+
+

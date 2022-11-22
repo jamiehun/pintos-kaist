@@ -204,7 +204,7 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
 
-	hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
+	// hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
 	
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
