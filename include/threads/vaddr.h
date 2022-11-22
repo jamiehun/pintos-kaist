@@ -56,4 +56,5 @@
 	((uint64_t) (vaddr) - (uint64_t) KERN_BASE);\
 })
 
+
 #endif /* threads/vaddr.h */
