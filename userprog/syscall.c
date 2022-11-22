@@ -7,9 +7,28 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "threads/mmu.h"
+#include "threads/init.h"
+
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+
+void halt(void);
+void exit(int status);
+tid_t fork(const char *thread_name);
+int exec(const char *cmd_line);
+int wait(tid_t pid);
+bool create(const char *file, unsigned initial_size);
+bool remove(const char *file);
+int open(const char *file);
+int filesize(int fd);
+int read(int fd, void *buffer, unsigned size);
+int write(int fd, const void *buffer, unsigned size);
+void seek(int fd, unsigned position);
+unsigned tell(int fd);
+void close(int fd);
 
 /* System call.
  *
@@ -41,6 +60,147 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
+	uint64_t number = f->R.rax;
+
+	switch(number)
+	{
+		
+	// System call 0 : HALT (완료)
+	case SYS_HALT :
+	{
+		halt();
+		break;
+	}
+
+
+	case SYS_EXIT :
+	{
+
+		break;
+	}
+
+
+	case SYS_FORK :
+	{
+
+		break;
+	}
+
+
+	case SYS_EXEC :
+	{
+
+		break;
+	}
+
+
+	case SYS_WAIT :
+	{
+
+		break;
+	}
+
+
+	case SYS_CREATE :
+	{
+
+		break;
+	}
+
+    //SYS4 : WAIT
+	case SYS_REMOVE :
+	{
+
+		break;
+	}
+
+
+	case SYS_OPEN :
+	{
+
+		break;
+	}
+
+
+	case SYS_FILESIZE :
+	{
+
+		break;
+	}
+
+
+	case SYS_READ :
+	{
+
+		break;
+	}
+
+ 
+	case SYS_WRITE :
+	{
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		break;
+	}
+
+
+	case SYS_SEEK :
+	{
+
+		break;
+	}
+
+	case SYS_TELL :
+	{
+
+		break;
+	}
+
+	case SYS_CLOSE :
+	{
+
+		break;
+	}
+
+
+	}
+
+
 	printf ("system call!\n");
 	thread_exit ();
+}
+
+/* 주소 유효성 검사 - 포인터가 가리키는 주소가 사용자 영역 */
+void 
+check_address(void *addr)
+{
+	struct thread *t = thread_current();
+
+	// 포인터가 가리키는 주소가 유저영역의 주소인지 확인
+	// 잘못된 접근일 경우 프로세스 종료 
+
+	/* Method 1: 
+	 * Verify the validity of a user-provided pointer.
+	 * The simplest way to handle user memory access.
+	 * Use the functions in ‘userprog/pagedir.c’ and in ‘threads/vaddr.h’
+     */
+
+	/* User can pass invalid pointers through the systemcall
+	 * 1) A pointer to kernel virtual memory address space (above PHYS_BASE)
+	 * 2) A null pointer
+	 * 3) A pointer to unmapped virtual memory
+	 */
+	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
+		process_exit();
+}
+
+void
+halt (void){
+	power_off();
+}
+
+// write 함수 초기 설정 ???
+int write(int fd, const void *buffer, unsigned size)
+{
+	putbuf(buffer, size);
+	return size;
 }

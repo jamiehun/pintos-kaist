@@ -210,6 +210,8 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
 	do_iret (&_if);
+	
+	// asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&_if) : "memory");
 	NOT_REACHED ();
 }
 
@@ -228,7 +230,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while(1);
+	thread_set_priority(3);
 	return -1;
 }
 
