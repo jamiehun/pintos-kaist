@@ -105,6 +105,9 @@ struct thread {
 	/* Project 2 exit function */
 	int process_status;		 
 
+	/* Project 2 open function */
+	struct file **fdt;
+	int next_fd;
 
 
 #ifdef USERPROG
