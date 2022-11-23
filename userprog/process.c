@@ -742,3 +742,10 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+/* Project 2 file descriptor */
+struct file *process_get_file(int fd)
+{
+	struct thread *cur = thread_current();
+	return (cur->fdt[fd]) ? cur->fdt[fd] : NULL;
+}

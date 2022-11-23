@@ -11,7 +11,9 @@
 #include "threads/init.h"
 #include "filesys/filesys.h"
 #include "user/syscall.h"
-
+#include "threads/synch.h"
+#include "filesys/file.h"
+#include "userprog/process.h"
 
 
 void syscall_entry (void);
@@ -42,6 +44,9 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
+	/* Initialize filesys_lock */
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -101,24 +106,24 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
-
+	// System Call 7 : Open
 	case SYS_OPEN :
 	{
-
+		f->R.rax = open(f->R.rdi);
 		break;
 	}
 
-
+	// System Call 8 : Filesize
 	case SYS_FILESIZE :
 	{
-
+		f->R.rax = filesize(f->R.rdi);
 		break;
 	}
 
 
 	case SYS_READ :
 	{
-
+		f->R.rax = read(f->R.rdi,f->R.rsi,f->R.rdx);
 		break;
 	}
 
@@ -209,6 +214,136 @@ bool remove (const char *file){
 	return success;
 }
 
+/* System Call 7 : Open */
+int open(const char *file) {
+	struct thread *cur = thread_current();
+	cur->next_fd;
+
+	check_address(file);
+
+	if (lock_held_by_current_thread(&filesys_lock))
+		return -1;
+	
+	lock_acquire(&filesys_lock);
+	int i=0;
+	do
+	{
+		i++;
+		cur->next_fd += 1;
+
+	} while (*(cur->fdt+i) != 0); // } while (cur->fdt[i] != 0);
+
+	*(cur->fdt) = filesys_open(file);
+
+	if (*(cur->fdt) == NULL)
+		return -1;
+
+	lock_release(&filesys_lock);
+
+	return cur->next_fd;
+}
+
+/* System Call 8 : Filesize */
+int filesize (int fd)
+{
+	int file_len;
+	struct file * temp;
+
+	temp = process_get_file(fd);
+
+	if (temp == NULL)
+		return -1;
+
+	file_len = file_length(temp);
+
+	return file_len;
+}
+
+/* System Call 10 : Read */
+// int read (int fd, void* buffer, unsigned length)
+// {
+// 	int file_len;
+// 	struct file * temp;
+// 	off_t byte;
+// 	check_address(buffer);
+// 	// check_address(buffer+length-1);
+
+// 	/* 파일에 동시접근이 일어날 수 있으므로 Lock 사용*/
+
+// 	/* 파일 디스크립터를 이용하여파일객체검색*/
+
+// 	/* 파일디스크립터가 0일경우 키보드의 입력을 버퍼에 저장 후 버퍼의 저장한 크기를 리턴(input_getc() 이용) */
+// 	if (fd == 0){
+// 		lock_acquire(&filesys_lock);
+// 		int size;
+// 		for (size=0; size<length; size++){
+// 			*(uint8_t*)buffer=input_getc();
+// 			buffer++;
+// 		}
+// 		lock_release(&filesys_lock);
+// 		return size;
+// 	}
+// 	/* 음수이거나 63 초과 시*/
+// 	else if(fd <= 1 || fd > 63){
+// 		return -1;
+// 	}
+// 	/* 파일디스크립터가 0이아닐경우 파일의 데이터를 크기만큼 저장 후 읽은 바이트 수 를리턴*/
+// 	else{
+// 		lock_acquire(&filesys_lock);
+// 		temp = process_get_file(fd);
+// 		if (temp){
+// 			byte=file_read(temp, buffer, length);
+// 			if (byte==NULL)
+// 				return -1;
+// 			lock_release(&filesys_lock);
+// 			return byte;
+// 		}
+// 		else{
+// 			lock_release(&filesys_lock);
+// 			return -1;
+// 		}
+// 	}
+// }
+
+/* System Call 10 : Read */
+int read (int fd, void* buffer, unsigned length)
+{
+	int file_len;
+	struct file * temp;
+	off_t byte;
+	check_address(buffer);
+	if (fd == 1 || fd < 0 || fd > 63){
+		return -1;
+	}
+	else if (fd == 0){
+		lock_acquire(&filesys_lock);
+		int size;
+		if (length==0) return 0;
+		for (size=0; size<length; size++){
+			*(uint8_t*)buffer=input_getc();
+			buffer++;
+		}
+		lock_release(&filesys_lock);
+		return size;
+	}
+	else{
+		lock_acquire(&filesys_lock);
+		temp=process_get_file(fd);
+		if (!temp){
+			lock_release(&filesys_lock);
+			return -1;
+		}
+		else{
+			byte=file_read(temp,buffer,length);
+			if (byte==0){
+				lock_release(&filesys_lock);
+				return 0;
+			} 
+			lock_release(&filesys_lock);
+			return byte;
+		}
+	}
+}
 
 /* System Call 10 : Write */
 // write 함수 초기 설정 ???
