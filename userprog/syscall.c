@@ -10,6 +10,7 @@
 #include "threads/mmu.h"
 #include "threads/init.h"
 #include "filesys/filesys.h"
+#include "user/syscall.h"
 
 
 
@@ -89,14 +90,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// System Call 5 : Create
 	case SYS_CREATE :
 	{
-		create(f->R.rdi, f->R.rsi);
+		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 	}
 
     // System Call 6 : Remove
 	case SYS_REMOVE :
 	{
-		remove(f->R.rdi);
+		f->R.rax = remove(f->R.rdi);
 		break;
 	}
 
@@ -152,7 +153,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 
 	// printf ("system call!\n");
-	thread_exit ();
+	// thread_exit ();
 }
 
 /* 주소 유효성 검사 - 포인터가 가리키는 주소가 사용자 영역 */
@@ -176,7 +177,7 @@ check_address(void *addr)
 	 * 3) A pointer to unmapped virtual memory
 	 */
 	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
-		process_exit();
+		exit(-1);
 }
 
 /* System Call 0 : Halt */
@@ -197,13 +198,15 @@ exit (int status){
 /* System Call 5 : Create */
 bool create(const char *file, unsigned initial_size){
 	check_address(file);
-	return filesys_create(file, initial_size) ;
+	bool success = filesys_create(file, initial_size);
+	return success;
 }
 
 /* System Call 6 : Remove */
 bool remove (const char *file){
 	check_address(file);
-	return filesys_remove(file);
+	bool success = filesys_remove(file);
+	return success;
 }
 
 
