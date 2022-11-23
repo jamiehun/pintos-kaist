@@ -331,6 +331,7 @@ int read (int fd, void* buffer, unsigned length)
 		temp=process_get_file(fd);
 		if (!temp){
 			lock_release(&filesys_lock);
+			// exit(0);
 			return -1;
 		}
 		else{
