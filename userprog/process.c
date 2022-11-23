@@ -198,7 +198,6 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	// file_name : 프로그램(실행파일) 이름
 	success = load (file_name, &_if);
 
-
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)	//메모리 적재 실패시 -1 반환
@@ -209,6 +208,7 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
+
 	do_iret (&_if);
 	
 	// asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&_if) : "memory");
@@ -487,6 +487,7 @@ done:
 }
 
 void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
+
 	int i,j;
 	int cnt=0;
 	int start_addr=if_->rsp;
