@@ -168,7 +168,6 @@ error:
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {	// f_name = 'args-single onearg'
-	// printf("========hello========\n");
 	char *file_name = f_name;
 	bool success;
 
@@ -176,10 +175,15 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
 	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
 	//??인터럽트 프레임 초기화
-	//  Setup virtual address of the program: code, data, stack (user stack) (추측)
+	// Setup virtual address of the program: code, data, stack (user stack) (추측)
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
+	/* Context change가 일어날 때 thread_launch()와 do_iret() 함수에서 아래와 같은 과정이 이루어지며, 이 과정에서 interrupt frame이 활용됩니다.
+	 * (1) 현재 cpu의 register 값들을 current thread(T1)의 intr_frame (tf)로 옮긴다.
+	 * (2) 새롭게 실행할 thread(T2)의 intr_frame에 있는 값을 cpu register로 옮긴다.
+	 * (3) iretq instruction을 활용해 T2에서 실행하던 코드를 마저 실행한다.
+	 * 정리하자면, intr_frame에 들어가야 할 내용은 cpu register에 있는 값입니다. 따라서 kernel memory에 별도로 저장되어 있는 값이 아닙니다. */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
@@ -198,13 +202,16 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	palloc_free_page (file_name);
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
-	hex_dump(_if.rsp,_if.rsp,KERN_BASE-_if.rsp,true);
+
+	// hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
+	
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
-	printf("=========++rip = %p\n",_if.rip);
 
 	do_iret (&_if);
+	
+	// asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&_if) : "memory");
 	NOT_REACHED ();
 }
 
@@ -223,14 +230,16 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while(1);
+	thread_set_priority(3);
 	return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
-	struct thread *curr = thread_current ();
+	struct thread *cur = thread_current ();
+	// printf("%s: exit(%d)\n", cur->name, status); 
+	
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
@@ -355,10 +364,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		idx++;
     }
 
-
 	memcpy(file_name,arg_list[0],strlen(arg_list[0])+1);
-	printf("======strlen0: %d strlen1: %d\n", strlen(arg_list[0]), strlen(arg_list[1]));
-	printf("======file_name after parsing : %s\n",file_name);
 
 	struct thread *t = thread_current ();
 	struct ELF ehdr;
@@ -375,8 +381,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* 페이지 테이블 활성화 */
 	process_activate (thread_current ());
 
-	printf("**********flag1\n");
-
 	/* Open executable file. */
 	/* 프로그램파일 Open */
 	file = filesys_open (file_name);
@@ -384,7 +388,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-	printf("**********flag2\n");
 
 	/* Read and verify executable header. */
 	/* ELF파일의 헤더정보를 읽어와 저장*/
@@ -398,7 +401,6 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
 	}
-	printf("**********flag3\n");
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -454,18 +456,15 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 				break;
 		}
 	}
-	printf("**********flag4\n");
 
 	/* Set up stack. */
 	// 스택 초기화
 	if (!setup_stack (if_))
 		goto done;
-	printf("**********flag5\n");
 
 	/* Start address. */
 	// text세그먼트 시작 주소
 	if_->rip = ehdr.e_entry;
-	printf(">>>>>>rip = %p\n",if_->rip);
 
 	// 인자들을 스택에 삽입(인자 전달)
 	/* 유저스택에 프로그램이름과 인자들을 저장하는 함수 */
@@ -475,7 +474,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* Callee(호출 받은 함수)의 리턴 값은 rax 레지스터에 저장된다. */
 
 	argument_stack(arg_list,idx,if_);
-	printf("**********flag6\n");
+
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
@@ -488,71 +487,48 @@ done:
 }
 
 void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
-	printf("<<<<<<<rip = %p\n",if_->rip);
 
-	printf("hello!\n");
 	int i,j;
 	int cnt=0;
 	int start_addr=if_->rsp;
-	char *save_addr[100];
-	printf("*******start %p \n",if_->rsp);
 
-	for (i=idx-1;i>-1;i--)
+	for (int i=idx-1; i>-1; i--)
 	{
-		int arg_len=strlen(arg_list[i])+1;
-		if_->rsp=if_->rsp-(arg_len);
-		memcpy(if_->rsp,arg_list[i],arg_len);
-		save_addr[i]=if_->rsp;
-	}
-	// for (i=idx-1; i>-1; i--)
-	// {
-	// 	cnt+=strlen(arg_list[i])+1;
-	// 	printf("********cnt : %d\n",cnt);
-	// 	for (j=strlen(arg_list[i]); j>-1 ; j--)
-	// 	{
-	// 		printf("***** j : %d\n",j);
-	// 		if_->rsp=if_->rsp-1;
-	// 		*(char*)if_->rsp=arg_list[i][j];
-	// 		printf("==i:%d,j:%d====%c\n",i,j,*(char*)if_->rsp);
-	// 		printf("==rsp addr %d\n",if_->rsp);
-	// 	}
-	// }
+		cnt+=strlen(arg_list[i])+1;
+		for (j=strlen(arg_list[i]); j>-1 ; j--)
+		{
+			if_->rsp=if_->rsp-1;
+			memset(if_->rsp, arg_list[i][j], sizeof(char));
+		
+		}
+	
+		if (i==0){
+	
+		/* word-align*/
+		int align = 8 - (cnt % 8);
+		for (int k=0; k < align ; k++)
+		{
+			if_->rsp=if_->rsp-1;
+			memset(if_->rsp, 0, sizeof(char));
+		}
 
-	// if (i==0){
-	/* word-align*/
-	int align = 8 - (cnt % 8);
-	for (int k=0; k < align ; k++)
-	{
-		if_->rsp=if_->rsp-1;
-		*(char*)if_->rsp=(uint8_t)0;
-		printf("&&&&& rsp %d\n",if_->rsp);
-	}
+		for (i=idx; i>-1; i--)
+		{
+			if_->rsp = if_->rsp-8;
 
-	for (i=idx; i>-1; i--)
-	{
-		// printf(">>>%d",i);
+			if (i==idx)
+				memset(if_->rsp, 0, sizeof(char *));
+			else {
+				start_addr=start_addr-strlen(arg_list[i])-1;
+				memcpy(if_->rsp, &start_addr, sizeof(start_addr));
+			}
+		}
 		if_->rsp = if_->rsp-8;
-		if (i==idx)
-			// *(char*)if_->rsp=(char *)0;
-		memset(if_->rsp,NULL,sizeof(char *));
-
-		else{
-			printf("strlen %d\n",strlen(arg_list[i]));
-			*(char*)if_->rsp=start_addr-strlen(arg_list[i])-1;
-			printf(">>>>> %d\n",start_addr-strlen(arg_list[i])-1);
-			start_addr=start_addr-strlen(arg_list[i])-1;
+		memset(if_->rsp, 0, sizeof(void *));
+		if_->R.rdi=idx;
+		if_->R.rsi=if_->rsp + 8; 
 		}
 	}
-	// }
-	// memcpy(if_->rsp,if_->rsp-8,sizeof(char*));
-	if_->rsp = if_->rsp-8;
-	// if_->rsp = (void*) 0;
-	memset(if_->rsp,(void *)0,sizeof(void *));
-	if_->R.rdi=idx;
-	if_->R.rsi=start_addr;
-	printf("bye1\n");
-	printf("bye2\n");
-
 }
 
 /* Checks whether PHDR describes a valid, loadable segment in

@@ -471,6 +471,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->init_priority = priority;
 	t->wait_on_lock = NULL;   // init시에는 주소가 없을 것으로 생각
 	list_init(&t->donations);
+
+	/* Project2 status init */
+	t->process_status = 0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
