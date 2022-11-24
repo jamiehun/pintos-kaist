@@ -78,6 +78,7 @@ initd (void *f_name) {
 
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
+/* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체(Woony)*/
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
@@ -117,17 +118,22 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 }
 #endif
 
+/* 부모 프로세스의 실행 context를 자식 프로세스로 복사하는 함수(by Woony) */
 /* A thread function that copies parent's execution context.
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
+/* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체(Woony)*/
 static void
-__do_fork (void *aux) {
+__do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하면서 aux는 thread_current()를 들고옴
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
+	/* parent->tf (부모 프로세스 구조체 내 인터럽트 프레임 멤버)는 프로세스의 userland context 정보를 들고 있지 않다.
+	즉, 당신은 process_fork()의 두번째 인자를 이 함수에 넘겨줘야만 한다.*/
 	struct intr_frame *parent_if;
+	// parent_if = &parent->tf;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
@@ -746,6 +752,12 @@ setup_stack (struct intr_frame *if_) {
 /* Project 2 file descriptor */
 struct file *process_get_file(int fd)
 {
+	if (fd < 0 || fd > 63) {
+		return NULL;
+	}
 	struct thread *cur = thread_current();
-	return (cur->fdt[fd]) ? cur->fdt[fd] : NULL;
+	if (cur->fdt[fd]==0)
+		return NULL;
+	else
+		return cur->fdt[fd];
 }
