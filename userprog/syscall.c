@@ -210,12 +210,7 @@ pid_t fork (const char *thread_name){
 	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
 	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
 	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
-
-	// (woony)
-	// 즉, 유저 프로그램 실행 정보는 syscall_handler로 전달되는 intr_frame에 저장된다. 이를 __do_fork에 넘겨주는 방식. 
-	// 따라서 우리가 구현해야 하는 시스템 콜 핸들러의 fork 함수에는 thread_name과 tf를 인자로 받아야 하며, 
-	// 이때 전달되는 tf는 시스템 콜 핸들러로 넘어온 f에 정보가 들어있다.
-
+	// process_fork(thread_name,);
 }
 
 
