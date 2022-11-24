@@ -79,11 +79,27 @@ initd (void *f_name) {
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 /* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체(Woony)*/
+// (woony)
+// 즉, 유저 프로그램 실행 정보는 syscall_handler로 전달되는 intr_frame에 저장된다. 이를 __do_fork에 넘겨주는 방식. 
+// 따라서 우리가 구현해야 하는 시스템 콜 핸들러의 fork 함수에는 thread_name과 tf를 인자로 받아야 하며, 
+// 이때 전달되는 tf는 시스템 콜 핸들러로 넘어온 f에 정보가 들어있다.
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
-	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+	struct thread *parent = thread_current();
+	tid_t child_tid;
+	/* parent_if에 유저스택 정보 담기*/
+	memcpy(&parent->parent_if,if_,sizeof(*if_));//if_는 유저스택
+
+	child_tid=thread_create (name,	// function함수를 실행하는 스레드 생성
+			PRI_DEFAULT, __do_fork, thread_current ()); //부모스레드는 현재 실행중인 유저 스레드
+		
+	/* Project 2 fork()*/
+	struct thread *child = get_child_process(child_tid);
+	list_push_back(&parent->child_list,&child->child_elem);//??? curr vs t
+	sema_down(&child->sema_fork);
+
+	return child_tid;
 }
 
 #ifndef VM
@@ -760,4 +776,26 @@ struct file *process_get_file(int fd)
 		return NULL;
 	else
 		return cur->fdt[fd];
+}
+
+/* 자식리스트에 접근하여 프로세스 디스크립터 검색*/
+struct thread *get_child_process(int pid){
+	/* 해당pid가 존재하면 프로세스 디스크립터 반환*/
+	/* 리스트에 존재하지않으면 NULL 리턴*/
+	struct thread *cur = thread_current();
+	struct list_elem *e;
+	for (e=list_begin(&cur->child_list); e!=list_end(&cur->child_list);e=list_next(e)){
+		struct thread *e_cur = list_entry(e, struct thread, child_elem);	//??? child_elem or elem
+		if (pid==e_cur->tid)
+			return e_cur;
+	}
+	return NULL;
+
+}
+
+/*부모프로세스의 자식리스트에서 프로세스 디스크립터 제거*/
+void remove_child_process(struct thread *cp){
+	/* 자식 리스트에서 제거*/
+	list_remove(&cp->elem); //??? child_elem or elem
+	/* 프로세스 디스크립터 메모리해제???*/
 }
