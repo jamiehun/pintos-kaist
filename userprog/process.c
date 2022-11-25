@@ -115,23 +115,28 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (!is_kern_pte(pte)) return; // ??? pte가 parent page 인가?
+	if (!is_kern_pte(pte)) return false; // ??? pte가 parent page 인가?
 	
 	/* 2. Resolve VA from the parent's page map level 4. */
-	parent_page = pml4_get_page (parent->pml4, va);
+	parent_page = pml4_get_page (parent->pml4, va); // parent->pml4에서 
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_ZERO);
+	newpage = palloc_get_page(PAL_USER);
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
+	memcpy(newpage, parent_page, sizeof(&parent_page));
+	writable=is_writable(pte);
 
+
+	/* pml4_set_page로 가상메모리와 물리메모리를 맵핑함 (writable에 대한 정보를 가지고서) */
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
 	}
 	return true;
 }
@@ -180,12 +185,27 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
+	for (int fd=0; fd<64;fd++){
+		if (fd<=1)
+			current->fdt[fd]=parent->fdt[fd];
+		else
+			current->fdt[fd]=file_duplicate(parent->fdt[fd]);
+	}
+
+	/* 자식 프로세스 0으로 반환 */
+	current->tf.R.rax = 0;
+	sema_up(&current->sema_fork);
+
+
+
 	process_init ();
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
+
 error:
+	sema_up(&current->sema_fork);
 	thread_exit ();
 }
 
@@ -270,6 +290,7 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	
 
 	process_cleanup ();
 }
