@@ -7,6 +7,9 @@
         "mmu.h": "c",
         "stdlib.h": "c",
         "syscall-nr.h": "c",
-        "loader.h": "c"
+        "loader.h": "c",
+        "init.h": "c",
+        "*.inc": "c",
+        "process.h": "c"
     }
 }

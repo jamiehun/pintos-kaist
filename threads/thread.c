@@ -213,12 +213,13 @@ tid_t thread_create(const char *name, int priority,
 	t->fdt = palloc_get_page(PAL_ZERO);
 	*(t->fdt) = 0;		// STDIN_FILENO 0
 	*(t->fdt+1) = 1;	// STDOUT_FILENO 1
-
 	t->next_fd = 0;
 
 	/* Add to run queue. */
 	struct thread *curr = thread_current();
 	thread_unblock(t); // ready list에 순서에 맞게 넣어줌
+
+
 
 	/* 생성된 스레드의 우선순위가 현재실행중인 스레드의 우선순위보다 높다면 CPU를 양보한다. */
 	/* 첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환 */
@@ -480,7 +481,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_init(&t->donations);
 
 	/* Project2 status init */
-	t->process_status = 0;
+	t->process_exit_status = 0;
+
+	/* Project2 fork() */
+	list_init(&t->child_list);
+	sema_init(&t->sema_fork,0);//??? 1 or 0
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

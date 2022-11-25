@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -102,12 +103,27 @@ struct thread {
 	struct list donations;				/* multiple donation 을 고려하기 위해 사용 */		 
 	struct list_elem donation_elem;	    /* multiple donation 을 고려하기 위해 사용 */
 
-	/* Project 2 exit function */
-	int process_status;		 
 
 	/* Project 2 open function */
 	struct file **fdt;
 	int next_fd;
+
+	/* Project 2 exit function */
+
+	/* Project 2 fork()*/
+	struct intr_frame parent_if;        /* __do_fork()실행을 위해 유저 스택의 정보를 넘겨주기 위한 인터럽트 프레임 */
+	struct list_elem child_elem;	    /* 자식리스트 element */
+	struct list child_list;				/* 자식리스트 */
+	struct semaphore sema_fork;
+
+	/* (한양대)필요 없음 */
+	tid_t parent_pid;					/* ???부모 프로세스의 디스크립터 */
+	struct semaphore sema_exit;			/* exit 세마포어*/
+	struct semaphore sema_load;			/* load 세마포어*/
+	bool process_load_flag;				/* ???프로세스의 프로그램 메모리 적재유무확인 */
+	bool process_exit_flag;		 		/* ???프로세스의 종료유무 확인*/
+	int process_exit_status;		 	/* ???exit 호출 시 종료 status*/
+
 
 
 #ifdef USERPROG
