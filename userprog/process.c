@@ -56,7 +56,7 @@ process_create_initd (const char *file_name) {
 	
 	char *token, *save_ptr;
 	token = strtok_r (file_name, " ", &save_ptr);
-	
+
 	/* Create a new thread to execute FILE_NAME. */
 	// file_name: 스레드이름(문자열), PRI_DEFAULT: 스레드우선순위(31)
 	// initd: 생성된 스레드가 실행할 함수를 가리키는 포인터, fn_copy: start_process 함수를 수행할 때 사용하는 인자값

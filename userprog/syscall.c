@@ -231,7 +231,6 @@ bool remove (const char *file){
 /* System Call 7 : Open */
 int open(const char *file) {
 	struct thread *cur = thread_current();
-	cur->next_fd;
 
 	check_address(file);
 
@@ -245,11 +244,16 @@ int open(const char *file) {
 		i++;
 		cur->next_fd += 1;
 
-	} while (*(cur->fdt+i) != 0); // } while (cur->fdt[i] != 0);
+	} while (cur->fdt[i] != 0); // } while (cur->fdt[i] != 0);
+	
+	if (i == 64){
+		lock_release(&filesys_lock);
+		return -1;
+	}
 
-	*(cur->fdt) = filesys_open(file);
+	cur->fdt[i] = filesys_open(file);
 
-	if (*(cur->fdt) == NULL)
+	if (cur->fdt[i] == NULL)
 		return -1;
 
 	lock_release(&filesys_lock);
@@ -273,51 +277,6 @@ int filesize (int fd)
 	return file_len;
 }
 
-/* System Call 10 : Read */
-// int read (int fd, void* buffer, unsigned length)
-// {
-// 	int file_len;
-// 	struct file * temp;
-// 	off_t byte;
-// 	check_address(buffer);
-// 	// check_address(buffer+length-1);
-
-// 	/* 파일에 동시접근이 일어날 수 있으므로 Lock 사용*/
-
-// 	/* 파일 디스크립터를 이용하여파일객체검색*/
-
-// 	/* 파일디스크립터가 0일경우 키보드의 입력을 버퍼에 저장 후 버퍼의 저장한 크기를 리턴(input_getc() 이용) */
-// 	if (fd == 0){
-// 		lock_acquire(&filesys_lock);
-// 		int size;
-// 		for (size=0; size<length; size++){
-// 			*(uint8_t*)buffer=input_getc();
-// 			buffer++;
-// 		}
-// 		lock_release(&filesys_lock);
-// 		return size;
-// 	}
-// 	/* 음수이거나 63 초과 시*/
-// 	else if(fd <= 1 || fd > 63){
-// 		return -1;
-// 	}
-// 	/* 파일디스크립터가 0이아닐경우 파일의 데이터를 크기만큼 저장 후 읽은 바이트 수 를리턴*/
-// 	else{
-// 		lock_acquire(&filesys_lock);
-// 		temp = process_get_file(fd);
-// 		if (temp){
-// 			byte=file_read(temp, buffer, length);
-// 			if (byte==NULL)
-// 				return -1;
-// 			lock_release(&filesys_lock);
-// 			return byte;
-// 		}
-// 		else{
-// 			lock_release(&filesys_lock);
-// 			return -1;
-// 		}
-// 	}
-// }
 
 /* System Call 10 : Read */
 int read (int fd, void* buffer, unsigned size)
@@ -369,24 +328,29 @@ int write(int fd, const void *buffer, unsigned size)
 	off_t byte;
 	check_address(buffer);
 	check_address(buffer+size-1);
-	lock_acquire(&filesys_lock);
 
 	temp=process_get_file(fd);
+	
 	if (fd < 0 || fd > 63){
-		lock_release(&filesys_lock);
 		return -1;
 	}
+
 	else if (fd == 1){
 		putbuf(buffer, size);	
-		lock_release(&filesys_lock);
 		return size;
 	}
-	else{
+
+	else if (fd == 0){
+		return 0;
+	}
+
+	else {
 		if (temp==NULL){
-			lock_release(&filesys_lock);
+			// printf("====%d====", temp);
 			return 0;
 		}		
 		else{
+			lock_acquire(&filesys_lock);
 			byte=file_write(temp,buffer,size);
 			if (byte==0){
 				lock_release(&filesys_lock);
@@ -415,8 +379,18 @@ unsigned tell (int fd){
 /* System Call 13 : Close */
 void close (int fd){
 	struct file * temp;
+	struct thread *cur = thread_current();
+	
+	if (fd < 0 || fd > 63) {
+		return;
+	}
+
 	temp=process_get_file(fd);
+	
+
 	lock_acquire(&filesys_lock);
 	file_close(temp);
+
+	cur->fdt[fd] = 0;
 	lock_release(&filesys_lock);
 }
