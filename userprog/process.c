@@ -220,6 +220,7 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	char *file_name = f_name;
 	bool success;
 
+	// 성훈 sema down
 
 	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
 	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
@@ -246,6 +247,11 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* And then load the binary */
 	// file_name : 프로그램(실행파일) 이름
 	success = load (file_name, &_if);
+	// sema_down(&thread_current()->sema_load);
+	// 영우 sema down
+
+
+	// 의균 sema up
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -257,6 +263,8 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	/* Start switched process. */
 	// 성공하면 유저 프로그램을 실행한다
 	// do interrupt return
+
+	// 성훈 sema up
 
 	do_iret (&_if);
 	
@@ -529,9 +537,11 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
 	success = true;
-
+	
+	// sema_up(&thread_current()->sema_load);
 done:
 	/* We arrive here whether the load is successful or not. */
+	// sema_up(&thread_current()->sema_load);
 	file_close (file);
 	return success;
 }

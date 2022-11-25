@@ -9,6 +9,7 @@
 #include "intrinsic.h"
 #include "threads/mmu.h"
 #include "threads/init.h"
+#include "threads/palloc.h"
 #include "filesys/filesys.h"
 #include "user/syscall.h"
 #include "threads/synch.h"
@@ -82,6 +83,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_EXEC :
 	{
 
+		f->R.rax = exec(f->R.rdi);
 		break;
 	}
 
@@ -210,9 +212,30 @@ pid_t fork (const char *thread_name){
 	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
 	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
 	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
-	// process_fork(thread_name,);
+	process_fork(thread_name, &thread_current()->tf);
 }
 
+/* System Call 3 : Exec */
+int exec (const char *file){
+	char *fn_copy;
+	
+	// 먼저 인자로 받은 file_name 주소의 유효성을 확인
+	check_address(file);
+	// printf("=========%s=========file\n", file);
+	/* Make a copy of FILE_NAME.
+	 * Otherwise there's a race between the caller and load(). */
+	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
+	fn_copy = palloc_get_page(PAL_USER);
+	if (fn_copy == NULL)
+		return TID_ERROR;
+	strlcpy(fn_copy, file, PGSIZE);
+	// printf("=========%s=========fn_copy\n", fn_copy);
+
+	// 의균 sema down
+	// sema_down(&thread_current()->sema_load);
+	if (process_exec(fn_copy)==-1) 
+		exit(-1);
+}
 
 /* System Call 5 : Create */
 bool create(const char *file, unsigned initial_size){
@@ -394,3 +417,4 @@ void close (int fd){
 	cur->fdt[fd] = 0;
 	lock_release(&filesys_lock);
 }
+
