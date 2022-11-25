@@ -89,14 +89,15 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *parent = thread_current();
 	tid_t child_tid;
 	/* parent_if에 유저스택 정보 담기*/
-	memcpy(&parent->parent_if,if_,sizeof(*if_));//if_는 유저스택
-
+	memcpy(&parent->parent_if,if_,sizeof(*if_));//if_는 유저스택, 이 정보를(userland context)를 Parent_if에 넘겨준다
+	/* 자식 스레드를 생성 */
 	child_tid=thread_create (name,	// function함수를 실행하는 스레드 생성
 			PRI_DEFAULT, __do_fork, thread_current ()); //부모스레드는 현재 실행중인 유저 스레드
 		
 	/* Project 2 fork()*/
+	/* get_child()를 통해 해당 p sema_fork 값이 1이 될 때까지(=자식 스레드 load가 완료될 때까지)를 기다렸다가 끝나면 pid를 반환 */
 	struct thread *child = get_child_process(child_tid);
-	list_push_back(&parent->child_list,&child->child_elem);//??? curr vs t
+	list_push_back(&parent->child_list,&child->child_elem);
 	sema_down(&child->sema_fork);
 
 	return child_tid;
@@ -107,19 +108,21 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
  * pml4_for_each. This is only for the project 2. */
 static bool
 duplicate_pte (uint64_t *pte, void *va, void *aux) {
-	struct thread *current = thread_current ();
-	struct thread *parent = (struct thread *) aux;
+	struct thread *current = thread_current ();     // ??? current가 자식 스레드
+	struct thread *parent = (struct thread *) aux;  // 
 	void *parent_page;
 	void *newpage;
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-
+	if (!is_kern_pte(pte)) return; // ??? pte가 parent page 인가?
+	
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	newpage = palloc_get_page(PAL_ZERO);
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
@@ -142,18 +145,19 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 /* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체(Woony)*/
 static void
 __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하면서 aux는 thread_current()를 들고옴
-	struct intr_frame if_;
+	struct intr_frame if_; // ??? 자식 인터럽트 프레임?
 	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
+	struct thread *current = thread_current (); //???자식스레드로 추측됨
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	/* parent->tf (부모 프로세스 구조체 내 인터럽트 프레임 멤버)는 프로세스의 userland context 정보를 들고 있지 않다.
 	즉, 당신은 process_fork()의 두번째 인자를 이 함수에 넘겨줘야만 한다.*/
-	struct intr_frame *parent_if;
-	// parent_if = &parent->tf;
+	struct intr_frame *parent_if; //부모 인터럽트 프레임
+	parent_if = &parent->parent_if; // 넘어온 부모 인터럽트(userland context가 담긴)를 프레임을 다시 저장 
+
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
-	memcpy (&if_, parent_if, sizeof (struct intr_frame));
+	memcpy (&if_, parent_if, sizeof (struct intr_frame)); // ??? 자식에게 넘겨주는것
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
