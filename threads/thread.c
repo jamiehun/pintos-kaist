@@ -215,6 +215,9 @@ tid_t thread_create(const char *name, int priority,
 	*(t->fdt+1) = 1;	// STDOUT_FILENO 1
 	t->next_fd = 0;
 
+	list_push_back(&thread_current()->child_list,&t->child_elem);
+
+
 	/* Add to run queue. */
 	struct thread *curr = thread_current();
 	thread_unblock(t); // ready list에 순서에 맞게 넣어줌
@@ -487,6 +490,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	list_init(&t->child_list);
 	sema_init(&t->sema_fork,0); //??? 1 or 0
 	sema_init(&t->sema_load,0); 
+	sema_init(&t->sema_wait,0);
 
 	/* Project2 wait() */
 	t->is_waited_flag=false;
