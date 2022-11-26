@@ -11,12 +11,25 @@
 #include "threads/init.h"
 #include "threads/palloc.h"
 #include "filesys/filesys.h"
-#include "user/syscall.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
 #include "userprog/process.h"
 
 
+void halt (void) NO_RETURN;
+void exit (int status) NO_RETURN;
+tid_t fork (const char *thread_name, struct intr_frame *if_);
+int exec (const char *file);
+int wait (tid_t pid);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int open (const char *file);
+int filesize (int fd);
+int read (int fd, void *buffer, unsigned size);
+int write (int fd, const void *buffer, unsigned size);
+void seek (int fd, unsigned position);
+unsigned tell (int fd);
+void close (int fd);
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -75,7 +88,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// System Call 2 : Fork
 	case SYS_FORK :
 	{
-		f->R.rax = fork(f->R.rdi);
+		f->R.rax = fork(f->R.rdi, f);
 		break;
 	}
 
@@ -185,7 +198,8 @@ check_address(void *addr)
 	 * 2) A null pointer
 	 * 3) A pointer to unmapped virtual memory
 	 */
-	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
+	// if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
+	if (!is_user_vaddr(addr)|| addr == NULL || pml4_get_page(t->pml4, addr)== NULL)
 		exit(-1);
 }
 
@@ -207,12 +221,12 @@ exit (int status){
 
 /* System Call 1 : Fork */
 //자식프로세스의 pid 반환, 
-pid_t fork (const char *thread_name){
+tid_t fork (const char *thread_name, struct intr_frame *if_){
 	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못한다.
 	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
 	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
 	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
-	process_fork(thread_name, &thread_current()->tf);
+	return process_fork(thread_name, if_);
 }
 
 /* System Call 3 : Exec */
@@ -227,22 +241,23 @@ int exec (const char *file){
 	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
 	fn_copy = palloc_get_page(PAL_USER);
 	if (fn_copy == NULL)
-		return TID_ERROR;
+		exit(-1);
 	strlcpy(fn_copy, file, PGSIZE);
 	// printf("=========%s=========fn_copy\n", fn_copy);
 
 	// 의균 sema down
 	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) 
-		exit(-1);
+		return -1;
+	NOT_REACHED();
+	return 0;
 }
 
 /* System Call 4 : Wait */
-int wait (pid_t pid)
+int wait (tid_t pid)
 {
 
-	// return process_wait(pid);
-	return -1;
+	return process_wait(pid);
 
 }
 
@@ -284,6 +299,8 @@ int open(const char *file) {
 	}
 
 	cur->fdt[i] = filesys_open(file);
+	// printf("====i : (%d)====\n", i);
+	// printf("====cur->fdt[i] : (%d)====\n", cur->fdt[i]);
 
 	if (cur->fdt[i] == NULL)
 		return -1;

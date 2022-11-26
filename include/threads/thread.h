@@ -118,6 +118,8 @@ struct thread {
 	bool is_waited_flag;		 		/* ???프로세스의 종료유무 확인*/
 	int process_exit_status;		 	/* ???exit 호출 시 종료 status*/
 	struct semaphore sema_wait;			/* wait 세마포어*/
+	struct semaphore sema_free;			/* wait 세마포어*/
+
 
 	/* (한양대)필요 없음 */
 	tid_t parent_pid;					/* ???부모 프로세스의 디스크립터 */
