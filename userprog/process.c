@@ -92,7 +92,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *parent = thread_current();
 	tid_t child_tid;
 	/* parent_if에 유저스택 정보 담기*/
-	memcpy(&parent->parent_if,if_,sizeof(*if_));//if_는 유저스택, 이 정보를(userland context)를 Parent_if에 넘겨준다
+	memcpy(&parent->parent_if,if_,sizeof(struct intr_frame));//if_는 유저스택, 이 정보를(userland context)를 Parent_if에 넘겨준다
 	/* 자식 스레드를 생성 */
 	child_tid=thread_create (name,	// function함수를 실행하는 스레드 생성
 			PRI_DEFAULT, __do_fork, thread_current ()); //부모스레드는 현재 실행중인 유저 스레드
@@ -102,7 +102,8 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *child = get_child_process(child_tid);
 	// list_push_back(&parent->child_list,&child->child_elem);
 	sema_down(&child->sema_fork);
-
+	// printf("&&&&&&&&&&&%d\n",child_tid);
+	// printf("************%d\n",if_->R.rax);
 	return child_tid;
 }
 
@@ -118,7 +119,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (!is_kern_pte(pte)) return false; // ??? pte가 parent page 인가?
+	if (is_kern_pte(pte)) return true; // ??? pte가 parent page 인가?
 	
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va); // parent->pml4에서 
@@ -189,22 +190,34 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       the resources of parent.*/
 
 	for (int fd=0; fd<64;fd++){
-		if (fd<=1)
+		if (fd<=1){
 			current->fdt[fd]=parent->fdt[fd];
-		else
-			current->fdt[fd]=file_duplicate(parent->fdt[fd]);
+		}
+		else{
+			if(parent->fdt[fd]!=NULL)
+				current->fdt[fd]=file_duplicate(parent->fdt[fd]);
+		}
 	}
 
 	/* 자식 프로세스 0으로 반환 */
-	current->tf.R.rax = 0;
+	if_.R.rax = 0;
+
+	// printf(">>>>>>>parent : %d\n",parent->status);
+	// printf(">>>>>>>child : %d\n",current->status);
+
 	sema_up(&current->sema_fork);
-
-
 	process_init ();
+
+	// printf("************out4\n");
+	// printf(">>>>>>>parent : %d\n",parent->status);
+	// printf(">>>>>>>child : %d\n",current->status);
+
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
+	printf("************out5\n");
+
 
 error:
 	sema_up(&current->sema_fork);
@@ -324,7 +337,7 @@ process_exit (void) {
 	// printf("%s: exit(%d)\n", cur->name, status); 
 	
 	/* 1 : 정상종료? */
-	cur->process_exit_status=1;
+	cur->process_exit_status=cur->tid;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
