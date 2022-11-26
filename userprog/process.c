@@ -273,14 +273,19 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 	NOT_REACHED ();
 }
 
-/* 자식프로세스가 종료될 때 까지 대기(현재는 구현이 안됨)*/
+/* 자식프로세스(child_tid)가 종료될 때 가지 대기 하다가 정상종료시 exit_status 반환,
+   비정상 종료(exception으로 인해 종료)시 -1반환.
+   1) TID가 잘못되었거나 
+   2) TID가 호출 프로세스의 자식이 아니거나 
+   3) 지정된 TID에 대해 process_wait()이 이미 성공적으로 호출된 경우 
+   대기하지 않고 -1을 즉시 반환.*/
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
  * exception), returns -1.  If TID is invalid or if it was not a
  * child of the calling process, or if process_wait() has already
  * been successfully called for the given TID, returns -1
  * immediately, without waiting.
- *
+ * 
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 int
@@ -288,8 +293,28 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	thread_set_priority(3);
-	return -1;
+	// thread_set_priority(3);
+	/*자식프로세스가 모두 종료 될 때 까지 대기(sleep state)
+	자식프로세스가 올바르게 종료됐는지 확인*/
+
+	struct thread *parent = thread_current();
+	struct thread *child = get_child_process(child_tid);
+	/* 1) TID가 잘못되었거나 2) TID가 호출 프로세스의 자식이 아니거나*/ 
+	if (child==NULL){
+		return -1;
+	}
+	/* 3) 지정된 TID에 대해 process_wait()이 이미 성공적으로 호출된 경우 */
+	if (child->is_waited_flag==true) return -1;
+	else child->is_waited_flag=true;
+
+	/* 자식프로세스가 종료될 때 까지 부모프로세스 대기(세마포어이용) */
+	sema_down(&parent->sema_wait);
+	int exit_status = child->process_exit_status;
+
+	/* 자식프로세스 디스크립터 삭제*/
+	remove_child_process(child);
+	
+	return exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -298,12 +323,15 @@ process_exit (void) {
 	struct thread *cur = thread_current ();
 	// printf("%s: exit(%d)\n", cur->name, status); 
 	
+	/* 1 : 정상종료? */
+	cur->process_exit_status=1;
+
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	
-
+	sema_up(&cur->sema_wait);
 	process_cleanup ();
 }
 
@@ -835,6 +863,7 @@ struct thread *get_child_process(int pid){
 /*부모프로세스의 자식리스트에서 프로세스 디스크립터 제거*/
 void remove_child_process(struct thread *cp){
 	/* 자식 리스트에서 제거*/
-	list_remove(&cp->elem); //??? child_elem or elem
+	list_remove(&cp->child_elem); //??? child_elem or elem
+
 	/* 프로세스 디스크립터 메모리해제???*/
 }
