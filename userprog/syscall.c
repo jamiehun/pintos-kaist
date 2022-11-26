@@ -241,7 +241,8 @@ int exec (const char *file){
 int wait (pid_t pid)
 {
 
-	return process_wait(pid);
+	// return process_wait(pid);
+	return -1;
 
 }
 
