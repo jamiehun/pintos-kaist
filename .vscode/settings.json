@@ -10,6 +10,10 @@
         "loader.h": "c",
         "init.h": "c",
         "*.inc": "c",
-        "process.h": "c"
+        "process.h": "c",
+        "stdint.h": "c",
+        "interrupt.h": "c",
+        "synch.h": "c",
+        "filesys.h": "c"
     }
 }

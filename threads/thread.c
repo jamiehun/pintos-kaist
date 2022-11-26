@@ -216,8 +216,6 @@ tid_t thread_create(const char *name, int priority,
 	t->next_fd = 0;
 
 	list_push_back(&thread_current()->child_list,&t->child_elem);
-
-
 	/* Add to run queue. */
 	struct thread *curr = thread_current();
 	thread_unblock(t); // ready list에 순서에 맞게 넣어줌
