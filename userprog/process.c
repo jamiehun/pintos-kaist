@@ -55,7 +55,7 @@ process_create_initd (const char *file_name) {
 	strlcpy (fn_copy, file_name, PGSIZE);
 	
 	char *token, *save_ptr;
-	token = strtok_r (file_name, " ", &save_ptr);
+	strtok_r (file_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	// file_name: 스레드이름(문자열), PRI_DEFAULT: 스레드우선순위(31)
@@ -96,14 +96,16 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* 자식 스레드를 생성 */
 	child_tid=thread_create (name,	// function함수를 실행하는 스레드 생성
 			PRI_DEFAULT, __do_fork, thread_current ()); //부모스레드는 현재 실행중인 유저 스레드
-		
+	if (child_tid==TID_ERROR)
+		return TID_ERROR;
 	/* Project 2 fork()*/
 	/* get_child()를 통해 해당 p sema_fork 값이 1이 될 때까지(=자식 스레드 load가 완료될 때까지)를 기다렸다가 끝나면 pid를 반환 */
 	struct thread *child = get_child_process(child_tid);
-	// list_push_back(&parent->child_list,&child->child_elem);
 	sema_down(&child->sema_fork);
-	// printf("&&&&&&&&&&&%d\n",child_tid);
-	// printf("************%d\n",if_->R.rax);
+    // if (child->process_exit_status == -1)
+    // {
+    //     return TID_ERROR;
+    // }
 	return child_tid;
 }
 
@@ -119,19 +121,25 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (is_kern_pte(pte)) return true; // ??? pte가 parent page 인가?
+	// if (is_kern_pte(pte)) return false; // !!! pte가 parent page 인가?
+	if (is_kernel_vaddr(va)) return false; // ??? pte가 parent page 인가?
 	
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va); // parent->pml4에서 
-
+	if (parent_page == NULL){
+		return false;
+	}
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
 	newpage = palloc_get_page(PAL_USER);
-
+	if(newpage == NULL) {
+		return false;
+	}
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
 	memcpy(newpage, parent_page, sizeof(&parent_page));
+	// memcpy(newpage, parent_page, PGSIZE);
 	writable=is_writable(pte);
 
 
@@ -157,11 +165,13 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	struct intr_frame if_; // ??? 자식 인터럽트 프레임?
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current (); //???자식스레드로 추측됨
+
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	/* parent->tf (부모 프로세스 구조체 내 인터럽트 프레임 멤버)는 프로세스의 userland context 정보를 들고 있지 않다.
 	즉, 당신은 process_fork()의 두번째 인자를 이 함수에 넘겨줘야만 한다.*/
 	struct intr_frame *parent_if; //부모 인터럽트 프레임
 	parent_if = &parent->parent_if; // 넘어온 부모 인터럽트(userland context가 담긴)를 프레임을 다시 저장 
+	// memcpy (parent_if, &parent->parent_if, sizeof (struct intr_frame)); // ??? 자식에게 넘겨주는것
 
 	bool succ = true;
 
@@ -189,7 +199,10 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
-	for (int fd=0; fd<64;fd++){
+	if (parent->next_fd==(1<<9))
+		goto error;
+	// for (int fd=0; fd<64;fd++){
+	for (int fd=0; fd<(1<<9);fd++){
 		if (fd<=1){
 			current->fdt[fd]=parent->fdt[fd];
 		}
@@ -199,24 +212,19 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 		}
 	}
 
+	current->next_fd=parent->next_fd;
+	sema_up(&current->sema_fork);
 	/* 자식 프로세스 0으로 반환 */
 	if_.R.rax = 0;
-
 	// printf(">>>>>>>parent : %d\n",parent->status);
 	// printf(">>>>>>>child : %d\n",current->status);
-
-	sema_up(&current->sema_fork);
 	process_init ();
 
-	// printf("************out4\n");
-	// printf(">>>>>>>parent : %d\n",parent->status);
-	// printf(">>>>>>>child : %d\n",current->status);
 
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
-	printf("************out5\n");
 
 
 error:
@@ -305,12 +313,12 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	// thread_set_priority(3);
+	// thread_set_priority(3); 
 	// return -1;
 	/*자식프로세스가 모두 종료 될 때 까지 대기(sleep state)
 	자식프로세스가 올바르게 종료됐는지 확인*/
 
-	struct thread *parent = thread_current();
+	// struct thread *parent = thread_current();
 	struct thread *child = get_child_process(child_tid);
 	/* 1) TID가 잘못되었거나 2) TID가 호출 프로세스의 자식이 아니거나*/ 
 	if (child==NULL){
@@ -326,7 +334,7 @@ process_wait (tid_t child_tid UNUSED) {
 
 	/* 자식프로세스 디스크립터 삭제*/
 	remove_child_process(child);
-	
+	sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
 	return exit_status;
 }
 
@@ -345,6 +353,8 @@ process_exit (void) {
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	// list_entry(cur.)
 	sema_up(&cur->sema_wait); //fault!!
+	// Postpone child termination until parents receives its exit status with 'wait'
+	sema_down(&cur->sema_free);
 	process_cleanup ();
 }
 

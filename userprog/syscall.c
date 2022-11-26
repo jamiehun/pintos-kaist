@@ -98,7 +98,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_EXEC :
 	{
 
-		f->R.rax = exec(f->R.rdi);
+		if(exec(f->R.rdi)==-1){
+			exit(-1);
+		}
 		break;
 	}
 
@@ -171,7 +173,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		close(f->R.rdi);
 		break;
 	}
-
+	default:
+		exit(-1);
+		break;
 
 	}
 
@@ -215,6 +219,7 @@ halt (void){
 void
 exit (int status){
 	struct thread *cur = thread_current();
+	// cur->process_exit_status=status;
 	printf("%s: exit(%d)\n", cur->name, status); // 한양대 기준
 	thread_exit(); 
 }
@@ -226,7 +231,7 @@ tid_t fork (const char *thread_name,struct intr_frame * if_){
 	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못한다.
 	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
 	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
-	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
+	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다
 	return process_fork(thread_name, if_);
 }
 
@@ -239,14 +244,15 @@ int exec (const char *file){
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
-	fn_copy = palloc_get_page(PAL_USER);
+	fn_copy = palloc_get_page(PAL_ZERO);
 	if (fn_copy == NULL)
-		return TID_ERROR;
-	strlcpy(fn_copy, file, PGSIZE);
+		exit(-1);// return TID_ERROR;
+	int file_size=strlen(file)+1;
+	strlcpy(fn_copy, file, file_size);
 
 	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) 
-		exit(-1);
+		return -1;// exit(-1);
 }
 
 /* System Call 4 : Wait */

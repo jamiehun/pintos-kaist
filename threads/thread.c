@@ -213,7 +213,7 @@ tid_t thread_create(const char *name, int priority,
 	t->fdt = palloc_get_page(PAL_ZERO);
 	*(t->fdt) = 0;		// STDIN_FILENO 0
 	*(t->fdt+1) = 1;	// STDOUT_FILENO 1
-	t->next_fd = 0;
+	t->next_fd = 2;
 
 	list_push_back(&thread_current()->child_list,&t->child_elem);
 	/* Add to run queue. */
@@ -228,6 +228,7 @@ tid_t thread_create(const char *name, int priority,
 	{
 		thread_yield();
 	}
+	// test_max_priority()
 	return tid;
 }
 
@@ -487,7 +488,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	/* Project2 fork() */
 	list_init(&t->child_list);
 	sema_init(&t->sema_fork,0); //??? 1 or 0
-	sema_init(&t->sema_load,0); 
+	sema_init(&t->sema_free,0); 
 	sema_init(&t->sema_wait,0);
 
 	/* Project2 wait() */
