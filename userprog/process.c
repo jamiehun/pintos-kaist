@@ -100,7 +100,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Project 2 fork()*/
 	/* get_child()를 통해 해당 p sema_fork 값이 1이 될 때까지(=자식 스레드 load가 완료될 때까지)를 기다렸다가 끝나면 pid를 반환 */
 	struct thread *child = get_child_process(child_tid);
-	list_push_back(&parent->child_list,&child->child_elem);
+	// list_push_back(&parent->child_list,&child->child_elem);
 	sema_down(&child->sema_fork);
 
 	return child_tid;
@@ -200,7 +200,6 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	sema_up(&current->sema_fork);
 
 
-
 	process_init ();
 
 	/* Finally, switch to the newly created process. */
@@ -294,6 +293,7 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 	// thread_set_priority(3);
+	// return -1;
 	/*자식프로세스가 모두 종료 될 때 까지 대기(sleep state)
 	자식프로세스가 올바르게 종료됐는지 확인*/
 
@@ -308,7 +308,7 @@ process_wait (tid_t child_tid UNUSED) {
 	else child->is_waited_flag=true;
 
 	/* 자식프로세스가 종료될 때 까지 부모프로세스 대기(세마포어이용) */
-	sema_down(&parent->sema_wait);
+	sema_down(&child->sema_wait);
 	int exit_status = child->process_exit_status;
 
 	/* 자식프로세스 디스크립터 삭제*/
@@ -330,8 +330,8 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	
-	sema_up(&cur->sema_wait);
+	// list_entry(cur.)
+	sema_up(&cur->sema_wait); //fault!!
 	process_cleanup ();
 }
 
