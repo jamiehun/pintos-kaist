@@ -238,10 +238,11 @@ int exec (const char *file){
 }
 
 /* System Call 4 : Wait */
-int wait (pid_t){
-	
+int wait (pid_t pid)
+{
 
-	
+	return process_wait(pid);
+
 }
 
 /* System Call 5 : Create */
