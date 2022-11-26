@@ -199,7 +199,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
-	if (parent->next_fd==(1<<9))
+	if (parent->fd_idx==(1<<9))
 		goto error;
 	// for (int fd=0; fd<64;fd++){
 	for (int fd=0; fd<(1<<9);fd++){
@@ -212,7 +212,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 		}
 	}
 
-	current->next_fd=parent->next_fd;
+	current->fd_idx=parent->fd_idx;
 	sema_up(&current->sema_fork);
 	/* 자식 프로세스 0으로 반환 */
 	if_.R.rax = 0;
