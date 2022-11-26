@@ -87,10 +87,10 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
-
+	// System Call 4 : Wait
 	case SYS_WAIT :
 	{
-
+		f->R.rax = wait(f->R.rdi);
 		break;
 	}
 
@@ -235,6 +235,13 @@ int exec (const char *file){
 	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) 
 		exit(-1);
+}
+
+/* System Call 4 : Wait */
+int wait (pid_t){
+	
+
+	
 }
 
 /* System Call 5 : Create */

@@ -209,7 +209,8 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 
 error:
 	sema_up(&current->sema_fork);
-	thread_exit ();
+	// thread_exit ();
+	exit(TID_ERROR); // GitBook 참고
 }
 
 /* (한양대 : start_process, CSAPP p.721) 프로그램을 메모리에 적재(load) 후 프로그램 시작*/
