@@ -488,11 +488,14 @@ init_thread(struct thread *t, const char *name, int priority)
 	/* Project2 fork() */
 	list_init(&t->child_list);
 	sema_init(&t->sema_fork,0); //??? 1 or 0
-	sema_init(&t->sema_free,0); 
+	// sema_init(&t->sema_free,0); 
 	sema_init(&t->sema_wait,0);
 
 	/* Project2 wait() */
 	t->is_waited_flag=false;
+
+	/* Project 2-4 file_deny_write */
+	t->running_file = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

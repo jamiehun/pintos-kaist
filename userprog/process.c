@@ -290,6 +290,7 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 
 	/* And then load the binary */
 	// file_name : 프로그램(실행파일) 이름
+
 	success = load (file_name, &_if);
 	// sema_down(&thread_current()->sema_load);
 	// 영우 sema down
@@ -357,7 +358,7 @@ process_wait (tid_t child_tid UNUSED) {
 
 	/* 자식프로세스 디스크립터 삭제*/
 	remove_child_process(child);
-	sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
+	// sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
 	return exit_status;
 }
 
@@ -377,7 +378,9 @@ process_exit (void) {
 	// list_entry(cur.)
 	sema_up(&cur->sema_wait); //fault!!
 	// Postpone child termination until parents receives its exit status with 'wait'
-	sema_down(&cur->sema_free);
+	// sema_down(&cur->sema_free);
+
+	file_close (cur->running_file);
 	process_cleanup ();
 }
 
@@ -517,10 +520,15 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	/* Open executable file. */
 	/* 프로그램파일 Open */
 	file = filesys_open (file_name);
+	
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+
+	/* Project 2 - file_deny_write */
+	t->running_file = file;
+	file_deny_write(file);
 
 	/* Read and verify executable header. */
 	/* ELF파일의 헤더정보를 읽어와 저장*/
@@ -617,7 +625,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 done:
 	/* We arrive here whether the load is successful or not. */
 	// sema_up(&thread_current()->sema_load);
-	file_close (file);
+	// file_close (file);	// process exit에서 수행하도록 수정
 	return success;
 }
 
