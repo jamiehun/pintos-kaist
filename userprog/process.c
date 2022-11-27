@@ -102,7 +102,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* get_child()를 통해 해당 p sema_fork 값이 1이 될 때까지(=자식 스레드 load가 완료될 때까지)를 기다렸다가 끝나면 pid를 반환 */
 	struct thread *child = get_child_process(child_tid);
 	sema_down(&child->sema_fork);
-	printf("========child_tid======%d\n", child_tid);
+	// printf("========child_tid======%d\n", child_tid);
     // if (child->process_exit_status == -1)
     // {
     //     return TID_ERROR;
@@ -122,8 +122,8 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	// if (is_kern_pte(pte)) return false; // !!! pte가 parent page 인가?
-	if (is_kernel_vaddr(va)) return false; // ??? pte가 parent page 인가?
+	if (is_kern_pte(pte)) return true; // !!! pte가 parent page 인가?
+	// if (is_kernel_vaddr(va)) return false; // ??? pte가 parent page 인가?
 	
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va); // parent->pml4에서 
@@ -136,6 +136,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	if(newpage == NULL) {
 		return false;
 	}
+
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
@@ -166,7 +167,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	struct intr_frame if_; // ??? 자식 인터럽트 프레임?
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current (); //???자식스레드로 추측됨
-	printf("========child_tid11======%d\n", current->tf.R.rax);
+	// printf("========child_tid11======%d\n", current->tf.R.rax);
 
 
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
@@ -175,7 +176,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	struct intr_frame *parent_if; //부모 인터럽트 프레임
 	parent_if = &parent->parent_if; // 넘어온 부모 인터럽트(userland context가 담긴)를 프레임을 다시 저장 
 	// memcpy (parent_if, &parent->parent_if, sizeof (struct intr_frame)); // ??? 자식에게 넘겨주는것
-	printf("========child_tid22======%d\n", current->tf.R.rax);
+	// printf("========child_tid22======%d\n", current->tf.R.rax);
 
 	bool succ = true;
 
@@ -187,22 +188,24 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	if (current->pml4 == NULL)
 		goto error;
 
-	printf("========child_tid33======%d\n", current->tf.R.rax);
+	// printf("========child_tid33======%d\n", current->tf.R.rax);
 	process_activate (current);
-	printf("========child_tid44*****%d\n", current->tf.R.rax);
+	// printf("========child_tid44*****%d\n", current->tf.R.rax);
 
 #ifdef VM
-	printf("========child_tid44*****%d\n", current->tf.R.rax);
+	// printf("========child_tid44*****%d\n", current->tf.R.rax);
 	supplemental_page_table_init (&current->spt);
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
 		goto error;
-	printf("========child_tid44======%d\n", current->tf.R.rax);
+	// printf("========child_tid44======%d\n", current->tf.R.rax);
 	
 #else
-	printf("========child_tid44*****%d\n", current->tf.R.rax);
-	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
+	// printf("========child_tid44*****%d\n", current->tf.R.rax);
+	if (!pml4_for_each (parent->pml4, duplicate_pte, parent)){
+		// printf("^^^^^^!pml4_for_each:(%d)\n", !pml4_for_each (parent->pml4, duplicate_pte, parent));
 		goto error;
-	printf("========child_tid77*****%d\n", current->tf.R.rax);
+	}
+	// printf("========child_tid77*****%d\n", current->tf.R.rax);
 #endif
 
 	/* TODO: Your code goes here.
@@ -210,7 +213,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	printf("========child_tid55======%d\n", current->tf.R.rax);
+	// printf("========child_tid55======%d\n", current->tf.R.rax);
 
 	if (parent->fd_idx==(1<<9))
 		goto error;
@@ -225,16 +228,16 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 		}
 	}
 	current->fd_idx=parent->fd_idx;
-	printf("========child_tid66======%d\n", current->tf.R.rax);
+	// printf("========child_tid66======%d\n", current->tf.R.rax);
 
 
 	current->fd_idx=parent->fd_idx;
-	printf("========child_tid2======%d\n", current->tf.R.rax);
+	// printf("========child_tid2======%d\n", current->tf.R.rax);
 
 	sema_up(&current->sema_fork);
 	/* 자식 프로세스 0으로 반환 */
 	if_.R.rax = 0;
-	printf("========child_tid3======%d\n", current->tf.R.rax);
+	// printf("========child_tid3======%d\n", current->tf.R.rax);
 
 	// printf(">>>>>>>parent : %d\n",parent->status);
 	// printf(">>>>>>>child : %d\n",current->status);
@@ -365,7 +368,7 @@ process_exit (void) {
 	// printf("%s: exit(%d)\n", cur->name, status); 
 	
 	/* 1 : 정상종료? */
-	cur->process_exit_status=cur->tid;
+	// cur->process_exit_status=cur->tid;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see

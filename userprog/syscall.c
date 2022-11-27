@@ -15,7 +15,9 @@
 #include "filesys/file.h"
 #include "userprog/process.h"
 
-
+void syscall_entry (void);
+void syscall_handler (struct intr_frame *);
+void check_address(void *addr);
 void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
 tid_t fork (const char *thread_name, struct intr_frame *if_);
@@ -30,8 +32,6 @@ int write (int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
-void syscall_entry (void);
-void syscall_handler (struct intr_frame *);
 
 
 /* System call.
@@ -198,8 +198,8 @@ check_address(void *addr)
 	 * 2) A null pointer
 	 * 3) A pointer to unmapped virtual memory
 	 */
-	// if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
-	if (!is_user_vaddr(addr)|| addr == NULL || pml4_get_page(t->pml4, addr)== NULL)
+	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
+	// if (!is_user_vaddr(addr)|| addr == NULL || pml4_get_page(t->pml4, addr)== NULL)
 		exit(-1);
 }
 
@@ -214,6 +214,7 @@ halt (void){
 void
 exit (int status){
 	struct thread *cur = thread_current();
+	cur->process_exit_status=status;
 	printf("%s: exit(%d)\n", cur->name, status); // 한양대 기준
 	thread_exit(); 
 }
@@ -241,17 +242,14 @@ int exec (const char *file){
 	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
 	fn_copy = palloc_get_page(PAL_USER);
 	if (fn_copy == NULL)
-		exit(-1);
+		return TID_ERROR;
 	strlcpy(fn_copy, file, PGSIZE);
 	// printf("=========%s=========fn_copy\n", fn_copy);
 
 	// 의균 sema down
 	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) 
-		return -1;
-		
-	NOT_REACHED();
-	return 0;
+		exit(-1);
 }
 
 /* System Call 4 : Wait */

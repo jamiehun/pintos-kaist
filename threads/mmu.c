@@ -151,9 +151,12 @@ bool
 pml4_for_each (uint64_t *pml4, pte_for_each_func *func, void *aux) {
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
 		uint64_t *pdpe = ptov((uint64_t *) pml4[i]);
-		if (((uint64_t) pdpe) & PTE_P)
-			if (!pdp_for_each ((uint64_t *) PTE_ADDR (pdpe), func, aux, i))
-				return false;
+		// printf("^^^^pdpe & PTE_P : (%d) ^^^^\n", ((uint64_t) pdpe) & PTE_P);
+		if (((uint64_t) pdpe) & PTE_P){
+			bool judge = !pdp_for_each ((uint64_t *) PTE_ADDR (pdpe), func, aux, i);
+			// printf("^^^^pdp_for_each : (%d) ^^^^\n", judge);
+			if (judge)
+				return false;}
 	}
 	return true;
 }
