@@ -11,26 +11,24 @@
 #include "threads/init.h"
 #include "threads/palloc.h"
 #include "filesys/filesys.h"
-// #include "user/syscall.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
 #include "userprog/process.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
-/*project 2 syscall*/
 void check_address(void *addr);
-void halt (void);
-void exit (int status);
-tid_t fork (const char *thread_name,struct intr_frame * if_);
+void halt (void) NO_RETURN;
+void exit (int status) NO_RETURN;
+tid_t fork (const char *thread_name, struct intr_frame *if_);
 int exec (const char *file);
 int wait (tid_t pid);
-bool create(const char *file, unsigned initial_size);
+bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
-int open(const char *file);
+int open (const char *file);
 int filesize (int fd);
-int read (int fd, void* buffer, unsigned size);
-int write(int fd, const void *buffer, unsigned size);
+int read (int fd, void *buffer, unsigned size);
+int write (int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
@@ -90,7 +88,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// System Call 2 : Fork
 	case SYS_FORK :
 	{
-		f->R.rax = fork(f->R.rdi,f);
+		f->R.rax = fork(f->R.rdi, f);
 		break;
 	}
 
@@ -98,9 +96,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	case SYS_EXEC :
 	{
 
-		if(exec(f->R.rdi)==-1){
-			exit(-1);
-		}
+		f->R.rax = exec(f->R.rdi);
 		break;
 	}
 
@@ -173,9 +169,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		close(f->R.rdi);
 		break;
 	}
-	default:
-		exit(-1);
-		break;
+
 
 	}
 
@@ -205,6 +199,7 @@ check_address(void *addr)
 	 * 3) A pointer to unmapped virtual memory
 	 */
 	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
+	// if (!is_user_vaddr(addr)|| addr == NULL || pml4_get_page(t->pml4, addr)== NULL)
 		exit(-1);
 }
 
@@ -219,7 +214,7 @@ halt (void){
 void
 exit (int status){
 	struct thread *cur = thread_current();
-	// cur->process_exit_status=status;
+	cur->process_exit_status=status;
 	printf("%s: exit(%d)\n", cur->name, status); // 한양대 기준
 	thread_exit(); 
 }
@@ -227,11 +222,11 @@ exit (int status){
 
 /* System Call 1 : Fork */
 //자식프로세스의 pid 반환, 
-tid_t fork (const char *thread_name,struct intr_frame * if_){
+tid_t fork (const char *thread_name, struct intr_frame *if_){
 	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못한다.
 	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
 	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
-	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다
+	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
 	return process_fork(thread_name, if_);
 }
 
@@ -241,25 +236,26 @@ int exec (const char *file){
 	
 	// 먼저 인자로 받은 file_name 주소의 유효성을 확인
 	check_address(file);
+	// printf("=========%s=========file\n", file);
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
-	fn_copy = palloc_get_page(PAL_ZERO);
+	fn_copy = palloc_get_page(PAL_USER);
 	if (fn_copy == NULL)
-		exit(-1);// return TID_ERROR;
-	int file_size=strlen(file)+1;
-	strlcpy(fn_copy, file, file_size);
+		return TID_ERROR;
+	strlcpy(fn_copy, file, PGSIZE);
+	// printf("=========%s=========fn_copy\n", fn_copy);
 
+	// 의균 sema down
 	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) 
-		return -1;// exit(-1);
+		exit(-1);
 }
 
 /* System Call 4 : Wait */
 int wait (tid_t pid)
 {
 
-	// return process_wait(pid);
 	return process_wait(pid);
 
 }
@@ -288,11 +284,10 @@ int open(const char *file) {
 		return -1;
 	
 	lock_acquire(&filesys_lock);
-	int i=0;
+	int i = 0;
 	do
 	{
 		i++;
-		cur->next_fd += 1;
 
 	} while (cur->fdt[i] != 0); // } while (cur->fdt[i] != 0);
 	
@@ -302,13 +297,17 @@ int open(const char *file) {
 	}
 
 	cur->fdt[i] = filesys_open(file);
+	// printf("====i : (%d)====\n", i);
+	// printf("====cur->fdt[i] : (%d)====\n", cur->fdt[i]);
 
 	if (cur->fdt[i] == NULL)
 		return -1;
 
 	lock_release(&filesys_lock);
 
-	return cur->next_fd;
+	cur->fd_idx = i;
+
+	return cur->fd_idx;
 }
 
 /* System Call 8 : Filesize */
