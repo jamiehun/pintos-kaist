@@ -106,7 +106,7 @@ struct thread {
 
 	/* Project 2 open function */
 	struct file **fdt;
-	int next_fd;
+	int fd_idx;
 
 	/* Project 2 exit function */
 
