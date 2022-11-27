@@ -358,7 +358,7 @@ process_wait (tid_t child_tid UNUSED) {
 
 	/* 자식프로세스 디스크립터 삭제*/
 	remove_child_process(child);
-	// sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
+	sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
 	return exit_status;
 }
 
@@ -378,7 +378,7 @@ process_exit (void) {
 	// list_entry(cur.)
 	sema_up(&cur->sema_wait); //fault!!
 	// Postpone child termination until parents receives its exit status with 'wait'
-	// sema_down(&cur->sema_free);
+	sema_down(&cur->sema_free);
 
 	file_close (cur->running_file);
 	process_cleanup ();
