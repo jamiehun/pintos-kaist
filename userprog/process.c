@@ -215,10 +215,10 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       the resources of parent.*/
 	// printf("========child_tid55======%d\n", current->tf.R.rax);
 
-	if (parent->fd_idx==(1<<9))
+	if (parent->fd_idx==FDCOUNT_LIMIT)
 		goto error;
 	// for (int fd=0; fd<64;fd++){
-	for (int fd=0; fd<(1<<9);fd++){
+	for (int fd=0; fd<FDCOUNT_LIMIT;fd++){
 		if (fd<=1){
 			current->fdt[fd]=parent->fdt[fd];
 		}
@@ -231,7 +231,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	// printf("========child_tid66======%d\n", current->tf.R.rax);
 
 
-	current->fd_idx=parent->fd_idx;
+	//current->fd_idx=parent->fd_idx;
 	// printf("========child_tid2======%d\n", current->tf.R.rax);
 
 	sema_up(&current->sema_fork);
@@ -376,11 +376,12 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	// list_entry(cur.)
+	palloc_free_multiple(cur->fdt, FDT_PAGES);
+	file_close (cur->running_file);
 	sema_up(&cur->sema_wait); //fault!!
 	// Postpone child termination until parents receives its exit status with 'wait'
 	sema_down(&cur->sema_free);
 
-	file_close (cur->running_file);
 	process_cleanup ();
 }
 
@@ -889,7 +890,7 @@ setup_stack (struct intr_frame *if_) {
 /* Project 2 file descriptor */
 struct file *process_get_file(int fd)
 {
-	if (fd < 0 || fd > 63) {
+	if (fd < 0 || fd > FDCOUNT_LIMIT) {
 		return NULL;
 	}
 	struct thread *cur = thread_current();

@@ -289,9 +289,9 @@ int open(const char *file) {
 	{
 		i++;
 
-	} while (cur->fdt[i] != 0); // } while (cur->fdt[i] != 0);
+	} while (cur->fdt[i] && i < FDCOUNT_LIMIT); // } while (cur->fdt[i] != 0);
 	
-	if (i == 64){
+	if (i >= FDCOUNT_LIMIT){
 		lock_release(&filesys_lock);
 		return -1;
 	}
@@ -336,7 +336,7 @@ int read (int fd, void* buffer, unsigned size)
 	check_address(buffer+size-1);
 	temp=process_get_file(fd);
 
-	if (fd == 1 || fd < 0 || fd > 63){
+	if (fd == 1 || fd < 0 ){
 		return -1;
 	}
 	else if (fd == 0){
@@ -380,7 +380,7 @@ int write(int fd, const void *buffer, unsigned size)
 
 	temp=process_get_file(fd);
 	
-	if (fd < 0 || fd > 63){
+	if (fd < 0){
 		return -1;
 	}
 
@@ -430,7 +430,7 @@ void close (int fd){
 	struct file * temp;
 	struct thread *cur = thread_current();
 	
-	if (fd < 0 || fd > 63) {
+	if (fd < 0) {
 		return;
 	}
 

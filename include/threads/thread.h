@@ -29,6 +29,10 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Project 2 */
+#define FDT_PAGES 3					  		// pages to allocate for file descriptor tables (thread_create, process_exit)
+#define FDCOUNT_LIMIT FDT_PAGES *(1 << 9) 	// Limit fd_idx
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -118,7 +122,7 @@ struct thread {
 	bool is_waited_flag;		 		/* ???프로세스의 종료유무 확인*/
 	int process_exit_status;		 	/* ???exit 호출 시 종료 status*/
 	struct semaphore sema_wait;			/* wait 세마포어*/
-	// struct semaphore sema_free;			/* load 세마포어*/
+	struct semaphore sema_free;			/* load 세마포어*/
 
 	/* Project 2-4 file_deny_write */
 	struct file *running_file;
