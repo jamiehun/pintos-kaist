@@ -213,7 +213,7 @@ tid_t thread_create(const char *name, int priority,
 	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
 	*(t->fdt) = 0;		// STDIN_FILENO 0
 	*(t->fdt+1) = 1;	// STDOUT_FILENO 1
-	t->fd_idx = 0;
+	t->fd_idx = 2;
 
 	list_push_back(&thread_current()->child_list,&t->child_elem);
 	/* Add to run queue. */

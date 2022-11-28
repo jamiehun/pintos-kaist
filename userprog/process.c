@@ -103,10 +103,10 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *child = get_child_process(child_tid);
 	sema_down(&child->sema_fork);
 	// printf("========child_tid======%d\n", child_tid);
-    // if (child->process_exit_status == -1)
-    // {
-    //     return TID_ERROR;
-    // }
+    if (child->process_exit_status == -1)
+    {
+        return TID_ERROR;
+    }
 	return child_tid;
 }
 
