@@ -122,7 +122,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (is_kern_pte(pte)) return true; // !!! pte가 parent page 인가?
+	if (is_kernel_vaddr(va)) return true; // !!! pte가 parent page 인가?
 	// if (is_kernel_vaddr(va)) return false; // ??? pte가 parent page 인가?
 	
 	/* 2. Resolve VA from the parent's page map level 4. */
@@ -298,8 +298,8 @@ process_exec (void *f_name) {	// f_name = 'args-single onearg'
 
 	// 의균 sema up
 
-	/* If load failed, quit. */
 	palloc_free_page (file_name);
+	/* If load failed, quit. */
 	if (!success)	//메모리 적재 실패시 -1 반환
 		return -1;
 
@@ -344,18 +344,21 @@ process_wait (tid_t child_tid UNUSED) {
 
 	// struct thread *parent = thread_current();
 	struct thread *child = get_child_process(child_tid);
-	/* 1) TID가 잘못되었거나 2) TID가 호출 프로세스의 자식이 아니거나*/ 
-	if (child==NULL){
+	/* 1) TID가 잘못되었거나 2) TID가 호출 프로세스의 자식이 아니거나*/
+
+	if (child==NULL)
 		return -1;
-	}
+
+	
 	/* 3) 지정된 TID에 대해 process_wait()이 이미 성공적으로 호출된 경우 */
-	if (child->is_waited_flag==true) return -1;
-	else child->is_waited_flag=true;
+	if (child->is_waited_flag==true)
+		return -1;
+
+	child->is_waited_flag=true;
 
 	/* 자식프로세스가 종료될 때 까지 부모프로세스 대기(세마포어이용) */
 	sema_down(&child->sema_wait);
 	int exit_status = child->process_exit_status;
-
 	/* 자식프로세스 디스크립터 삭제*/
 	remove_child_process(child);
 	sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
@@ -921,6 +924,6 @@ struct thread *get_child_process(int pid){
 void remove_child_process(struct thread *cp){
 	/* 자식 리스트에서 제거*/
 	list_remove(&cp->child_elem); //??? child_elem or elem
-
+	// palloc_free_page(cp);
 	/* 프로세스 디스크립터 메모리해제???*/
 }
