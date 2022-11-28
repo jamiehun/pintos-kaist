@@ -95,7 +95,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 	case SYS_EXEC :
 	{
-
 		f->R.rax = exec(f->R.rdi);
 		break;
 	}
@@ -170,6 +169,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
+	default:
+		exit(-1);
 
 	}
 
@@ -248,8 +249,10 @@ int exec (const char *file){
 
 	// 의균 sema down
 	// sema_down(&thread_current()->sema_load);
-	if (process_exec(fn_copy)==-1) 
+	if (process_exec(fn_copy)==-1) {
+		// palloc_free_page(fn_copy);	// 2022.11.28 수정
 		exit(-1);
+	}
 }
 
 /* System Call 4 : Wait */
@@ -283,29 +286,21 @@ int open(const char *file) {
 	if (lock_held_by_current_thread(&filesys_lock))
 		return -1;
 	
-	lock_acquire(&filesys_lock);
-	int i = 0;
-	do
-	{
-		i++;
-
-	} while (cur->fdt[i] && i < FDCOUNT_LIMIT); // } while (cur->fdt[i] != 0);
-	
-	if (i >= FDCOUNT_LIMIT){
-		lock_release(&filesys_lock);
-		return -1;
+	while (cur->fdt[cur->fd_idx] && cur->fd_idx < FDCOUNT_LIMIT) { // } while (cur->fdt[i] != 0);
+		cur->fd_idx++;
 	}
+	
+	if (cur->fd_idx >= FDCOUNT_LIMIT)
+		return -1;
+	
+	lock_acquire(&filesys_lock);
+	
+	cur->fdt[cur->fd_idx] = filesys_open(file);
 
-	cur->fdt[i] = filesys_open(file);
-	// printf("====i : (%d)====\n", i);
-	// printf("====cur->fdt[i] : (%d)====\n", cur->fdt[i]);
-
-	if (cur->fdt[i] == NULL)
+	if (cur->fdt[cur->fd_idx] == NULL)
 		return -1;
 
 	lock_release(&filesys_lock);
-
-	cur->fd_idx = i;
 
 	return cur->fd_idx;
 }
