@@ -10,6 +10,7 @@ syscall_entry:
 	movabs $tss, %r12
 	movq (%r12), %r12
 	movq 4(%r12), %rsp         /* Read ring0 rsp from the tss */
+	/*스레드를 생성할 때 저장해 두었던 커널 스택 공간을 가리키는 rsp값(tss에 저장되어 있음)을 꺼내서 유저의 rsp에 덮어쓴다. 이때부터 우리는 커널 스택 공간으로 들어간다.*/
 	/* Now we are in the kernel stack */
 	push $(SEL_UDSEG)      /* if->ss */
 	push %rbx              /* if->rsp */
@@ -43,6 +44,8 @@ check_intr:
 	jnb no_sti
 	sti                    /* restore interrupt */
 no_sti:
+	/*syscall_handler를 호출한다!! */
+	/*즉, 유저 프로그램 실행 정보는 syscall_handler로 전달되는 intr_frame에 저장된다.*/
 	movabs $syscall_handler, %r12
 	call *%r12
 	popq %r15

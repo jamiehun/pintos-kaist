@@ -56,7 +56,7 @@ static void paging_init (uint64_t mem_end);
 
 static char **read_command_line (void);
 static char **parse_options (char **argv);
-static void run_actions (char **argv);
+static void run_actions (char **argv);		//ARGV[]에 지정된 모든 작업을 null포인터 sentinel까지 실행
 static void usage (void);
 
 static void print_stats (void);
@@ -74,9 +74,11 @@ main (void) {
 	bss_init ();
 
 	/* Break command line into arguments and parse options. */
-	argv = read_command_line ();
+	argv = read_command_line ();		// argv : -q -f put args-sing run 'args-single onearg'
 	argv = parse_options (argv);
-
+	#ifdef USERPROG
+		printf("check");
+	#endif
 	/* Initialize ourselves as a thread so we can use locks,
 	   then enable console locking. */
 	thread_init ();
@@ -176,8 +178,8 @@ read_command_line (void) {
 	int argc;
 	int i;
 
-	argc = *(uint32_t *) ptov (LOADER_ARG_CNT);
-	p = ptov (LOADER_ARGS);
+	argc = *(uint32_t *) ptov (LOADER_ARG_CNT);	// LOADER_ARG_CNT : Number of args.
+	p = ptov (LOADER_ARGS);						// LOADER_ARGS : Command-line args.
 	end = p + LOADER_ARGS_LEN;
 	for (i = 0; i < argc; i++) {
 		if (p >= end)
@@ -189,21 +191,21 @@ read_command_line (void) {
 	argv[argc] = NULL;
 
 	/* Print kernel command line. */
-	printf ("Kernel command line:");
+	printf ("Kernel command line:");		// argv : -q -f put args-sing run 'args-single onearg'
 	for (i = 0; i < argc; i++)
 		if (strchr (argv[i], ' ') == NULL)
-			printf (" %s", argv[i]);
+			printf (" %s", argv[i]);		// -q, -f, put, args-single, run - put과 args-single은 어디서???
 		else
-			printf (" '%s'", argv[i]);
+			printf (" '%s'", argv[i]);		// 'args-single onearg'
 	printf ("\n");
-
+	
 	return argv;
 }
 
 /* Parses options in ARGV[]
    and returns the first non-option argument. */
 static char **
-parse_options (char **argv) {
+parse_options (char **argv) {		// argv : -q -f put args-sing run 'args-single onearg'
 	for (; *argv != NULL && **argv == '-'; argv++) {
 		char *save_ptr;
 		char *name = strtok_r (*argv, "=", &save_ptr);
@@ -234,28 +236,35 @@ parse_options (char **argv) {
 	return argv;
 }
 
+/* 유저 프로세스를 실행될 수 있도록 프로세스 생성을 시작하고 프로세스 종료를 대기*/
 /* Runs the task specified in ARGV[1]. */
 static void
-run_task (char **argv) {
-	const char *task = argv[1];
-
+run_task (char **argv) {		//  run 'args-single onearg'
+	//argv[1] : 실행가능 목적파일의 이름(file name)
+	const char *task = argv[1];	// 'args-single onearg'
+	
 	printf ("Executing '%s':\n", task);
 #ifdef USERPROG
+	//parse_options (char **argv) 함수에서 else if (!strcmp (name, "-threads-tests")) 조건에 따라 true or false
 	if (thread_tests){
 		run_test (task);
 	} else {
-		process_wait (process_create_initd (task));
+	/* 인자 함수 process_create_initd(task)를 통해 유저 프로세스를 생성한 후 process_wait() 함수를 사용하여 자식 프로세스가 종료될 때까지 대기한다. */
+	/* (한양대 : process_execute(argv)) */
+		process_wait (process_create_initd (task)); //?? scheduled 여부 확인 후 YES : process.c의 process_exec (void *f_name) 실행 NO : Pintos 종료
 	}
 #else
+	// user_program인지 검사 후 run_test
 	run_test (task);
 #endif
 	printf ("Execution of '%s' complete.\n", task);
 }
 
+/* ARGV[]에 지정된 모든 작업을 null포인터 sentinel까지 실행 */
 /* Executes all of the actions specified in ARGV[]
    up to the null pointer sentinel. */
 static void
-run_actions (char **argv) {
+run_actions (char **argv) {				  // run 'args-single onearg'
 	/* An action. */
 	struct action {
 		char *name;                       /* Action name. */
@@ -265,7 +274,7 @@ run_actions (char **argv) {
 
 	/* Table of supported actions. */
 	static const struct action actions[] = {
-		{"run", 2, run_task},
+		{"run", 2, run_task},				// run옵션(응용프로그램 실행)일 경우 run_task() 호출
 #ifdef FILESYS
 		{"ls", 1, fsutil_ls},
 		{"cat", 2, fsutil_cat},

@@ -7,6 +7,7 @@
 #include "threads/thread.h"
 #include "threads/mmu.h"
 #include "intrinsic.h"
+/* pml4 : Page Map Level 4단계 */
 
 static uint64_t *
 pgdir_walk (uint64_t *pdp, const uint64_t va, int create) {
@@ -55,6 +56,7 @@ pdpe_walk (uint64_t *pdpe, const uint64_t va, int create) {
 	return pte;
 }
 
+/* 가상주소 vaddr에 대한 페이지 테이블 엔트리의 주소를 반환한다 */
 /* Returns the address of the page table entry for virtual
  * address VADDR in page map level 4, pml4.
  * If PML4E does not have a page table for VADDR, behavior depends
@@ -92,6 +94,7 @@ pml4e_walk (uint64_t *pml4e, const uint64_t va, int create) {
  * virtual addresses, but none for user virtual addresses.
  * Returns the new page directory, or a null pointer if memory
  * allocation fails. */
+/* 커널 가상 주소 공간을 위한 새로운 pml4를 생성. 유저 가상 주소 공간은 해당되지 않는다 */
 uint64_t *
 pml4_create (void) {
 	uint64_t *pml4 = palloc_get_page (0);
@@ -148,9 +151,12 @@ bool
 pml4_for_each (uint64_t *pml4, pte_for_each_func *func, void *aux) {
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++) {
 		uint64_t *pdpe = ptov((uint64_t *) pml4[i]);
-		if (((uint64_t) pdpe) & PTE_P)
-			if (!pdp_for_each ((uint64_t *) PTE_ADDR (pdpe), func, aux, i))
-				return false;
+		// printf("^^^^pdpe & PTE_P : (%d) ^^^^\n", ((uint64_t) pdpe) & PTE_P);
+		if (((uint64_t) pdpe) & PTE_P){
+			bool judge = !pdp_for_each ((uint64_t *) PTE_ADDR (pdpe), func, aux, i);
+			// printf("^^^^pdp_for_each : (%d) ^^^^\n", judge);
+			if (judge)
+				return false;}
 	}
 	return true;
 }
@@ -206,10 +212,12 @@ pml4_activate (uint64_t *pml4) {
 	lcr3 (vtop (pml4 ? pml4 : base_pml4));
 }
 
+/* pml4에서 사용자 가상 주소 UADDR에 해당하는 실제 주소를 찾는다. 
+ * 해당 물리적 주소에 해당하는 커널 가상 주소 또는 UADDR이 매핑되지 않은 경우 NULL포인터를 반환한다 */
 /* Looks up the physical address that corresponds to user virtual
  * address UADDR in pml4.  Returns the kernel virtual address
  * corresponding to that physical address, or a null pointer if
- * UADDR is unmapped. */
+ * UADDR is unmapped. (see CSAPP : p.799)*/
 void *
 pml4_get_page (uint64_t *pml4, const void *uaddr) {
 	ASSERT (is_user_vaddr (uaddr));

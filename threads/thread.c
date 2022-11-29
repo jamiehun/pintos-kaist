@@ -198,21 +198,29 @@ tid_t thread_create(const char *name, int priority,
 	/* Initialize thread. */
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
-
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
-	t->tf.rip = (uintptr_t)kernel_thread;
-	t->tf.R.rdi = (uint64_t)function;
-	t->tf.R.rsi = (uint64_t)aux;
+	t->tf.rip = (uintptr_t)kernel_thread; 	//PC 실행할 다음 인스트럭션의 메모리주소를 가리킴
+	t->tf.R.rdi = (uint64_t)function;		//스레드가 수행할 함수
+	t->tf.R.rsi = (uint64_t)aux;			//수행 할 함수의 인자
 	t->tf.ds = SEL_KDSEG;
 	t->tf.es = SEL_KDSEG;
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	/* File Descriptor Table */
+	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	*(t->fdt) = 0;		// STDIN_FILENO 0
+	*(t->fdt+1) = 1;	// STDOUT_FILENO 1
+	t->fd_idx = 2;
+
+	list_push_back(&thread_current()->child_list,&t->child_elem);
 	/* Add to run queue. */
 	struct thread *curr = thread_current();
 	thread_unblock(t); // ready list에 순서에 맞게 넣어줌
+
+
 
 	/* 생성된 스레드의 우선순위가 현재실행중인 스레드의 우선순위보다 높다면 CPU를 양보한다. */
 	/* 첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환 */
@@ -220,6 +228,7 @@ tid_t thread_create(const char *name, int priority,
 	{
 		thread_yield();
 	}
+	// test_max_priority()
 	return tid;
 }
 
@@ -443,11 +452,12 @@ idle(void *idle_started_ UNUSED)
 static void
 kernel_thread(thread_func *function, void *aux)
 {
-	ASSERT(function != NULL);
 
+	ASSERT(function != NULL);
 	intr_enable(); /* The scheduler runs with interrupts off. */
 	function(aux); /* Execute the thread function. */
 	thread_exit(); /* If function() returns, kill the thread. */
+
 }
 
 /* Does basic initialization of T as a blocked thread named
@@ -471,6 +481,21 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->init_priority = priority;
 	t->wait_on_lock = NULL;   // init시에는 주소가 없을 것으로 생각
 	list_init(&t->donations);
+
+	/* Project2 status init */
+	t->process_exit_status = 0;
+
+	/* Project2 fork() */
+	list_init(&t->child_list);
+	sema_init(&t->sema_fork,0); //??? 1 or 0
+	sema_init(&t->sema_free,0); 
+	sema_init(&t->sema_wait,0);
+
+	/* Project2 wait() */
+	t->is_waited_flag=false;
+
+	/* Project 2-4 file_deny_write */
+	t->running_file = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
