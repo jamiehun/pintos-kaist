@@ -173,10 +173,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		exit(-1);
 
 	}
-
-
-	// printf ("system call!\n");
-	// thread_exit ();
 }
 
 /* 주소 유효성 검사 - 포인터가 가리키는 주소가 사용자 영역 */
@@ -211,22 +207,21 @@ halt (void){
 }
 
 /* System Call 1 : Create */
-/* 한양대, pseudo code 적용 완료*/
 void
 exit (int status){
 	struct thread *cur = thread_current();
 	cur->process_exit_status=status;
-	printf("%s: exit(%d)\n", cur->name, status); // 한양대 기준
+	printf("%s: exit(%d)\n", cur->name, status);
 	thread_exit(); 
 }
 
 
 /* System Call 1 : Fork */
-//자식프로세스의 pid 반환, 
+/* 자식프로세스의 pid 반환 */
 tid_t fork (const char *thread_name, struct intr_frame *if_){
-	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못한다.
-	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 합니다.
-	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면됨 
+	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못함
+	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 함
+	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면 됨 
 	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
 	return process_fork(thread_name, if_);
 }
@@ -237,7 +232,7 @@ int exec (const char *file){
 	
 	// 먼저 인자로 받은 file_name 주소의 유효성을 확인
 	check_address(file);
-	// printf("=========%s=========file\n", file);
+
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
@@ -245,12 +240,8 @@ int exec (const char *file){
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy(fn_copy, file, PGSIZE);
-	// printf("=========%s=========fn_copy\n", fn_copy);
 
-	// 의균 sema down
-	// sema_down(&thread_current()->sema_load);
 	if (process_exec(fn_copy)==-1) {
-		// palloc_free_page(fn_copy);	// 2022.11.28 수정
 		exit(-1);
 	}
 }
@@ -305,6 +296,7 @@ int open(const char *file) {
 	return cur->fd_idx;
 }
 
+
 /* System Call 8 : Filesize */
 int filesize (int fd)
 {
@@ -349,7 +341,6 @@ int read (int fd, void* buffer, unsigned size)
 		lock_acquire(&filesys_lock);
 		if (temp==NULL){
 			lock_release(&filesys_lock);
-			// exit(0);
 			return 0;
 		}
 		else{
@@ -365,7 +356,6 @@ int read (int fd, void* buffer, unsigned size)
 }
 
 /* System Call 10 : Write */
-// write 함수 초기 설정 ???
 int write(int fd, const void *buffer, unsigned size)
 {	
 	struct file * temp;
@@ -390,7 +380,6 @@ int write(int fd, const void *buffer, unsigned size)
 
 	else {
 		if (temp==NULL){
-			// printf("====%d====", temp);
 			return 0;
 		}		
 		else{
@@ -406,12 +395,14 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 }
 
+
 /* System Call 11 : Seek */
 void seek (int fd, unsigned position){
 	struct file * temp;
 	temp=process_get_file(fd);
 	file_seek(temp,position);
 }
+
 
 /* System Call 12 : Tell */
 unsigned tell (int fd){
